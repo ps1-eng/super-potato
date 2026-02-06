@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="card">
+  <div class="item-header">
+    <div>
+      <h2>{{ item.name }}</h2>
+      <p class="muted">Purchased from {{ item.purchase_source }} on {{ item.purchase_date }}</p>
+    </div>
+    <a class="link" href="{{ url_for('index') }}">Back to items</a>
+  </div>
+  <div class="detail-grid">
+    <div>
+      <h3>Item details</h3>
+      <ul>
+        <li>Status: <strong>{{ item.status }}</strong></li>
+        <li>SKU: {{ item.sku or '–' }}</li>
+        <li>Purchase price: {{ item.purchase_price | currency }}</li>
+        <li>Purchase date: {{ item.purchase_date }}</li>
+        <li>Purchase source: {{ item.purchase_source }}</li>
+        <li>Description: {{ item.description or '–' }}</li>
+        <li>Notes: {{ item.notes or '–' }}</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Sale details</h3>
+      <ul>
+        <li>Sale price: {{ item.sale_price | currency }}</li>
+        <li>Sale date: {{ item.sale_date or '–' }}</li>
+        <li>Sold on: {{ item.sold_marketplace or '–' }}</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Add a listing</h2>
+  <form class="grid" method="post" action="{{ url_for('add_listing', item_id=item.id) }}">
+    <label>
+      Marketplace
+      <select name="marketplace">
+        {% for option in marketplaces %}
+          <option value="{{ option }}">{{ option }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      Listing URL
+      <input type="url" name="listing_url" placeholder="https://" required />
+    </label>
+    <label>
+      Listing date (DD/MM/YYYY)
+      <input type="text" name="listing_date" placeholder="25/03/2024" required />
+    </label>
+    <button type="submit" class="primary">Add listing</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Listings</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Marketplace</th>
+          <th>Listing URL</th>
+          <th>Date listed</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for listing in listings %}
+          <tr>
+            <td>{{ listing.marketplace }}</td>
+            <td><a href="{{ listing.listing_url }}" target="_blank" rel="noopener">{{ listing.listing_url }}</a></td>
+            <td>{{ listing.listing_date or '–' }}</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="3" class="empty">No listings yet.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if listings %}
+    <a class="button" href="{{ url_for('open_listings', item_id=item.id) }}">Open all listings</a>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Mark as sold</h2>
+  <form class="grid" method="post" action="{{ url_for('mark_sold', item_id=item.id) }}">
+    <label>
+      Sale price (€)
+      <input type="number" step="0.01" name="sale_price" required />
+    </label>
+    <label>
+      Sale date (DD/MM/YYYY)
+      <input type="text" name="sale_date" placeholder="25/03/2024" required />
+    </label>
+    <label>
+      Sold marketplace
+      <select name="sold_marketplace" required>
+        {% for option in marketplaces %}
+          <option value="{{ option }}">{{ option }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit" class="primary">Mark sold</button>
+  </form>
+</section>
+{% endblock %}
