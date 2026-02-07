@@ -607,6 +607,8 @@ def import_csv() -> str | Response:
 
 @app.route("/reports")
 def reports() -> str:
+    month_filter = request.args.get("month") or "all"
+    marketplace_filter = request.args.get("marketplace") or "all"
     summary = fetch_summary()
     with get_db() as conn:
         marketplace_data = conn.execute(
@@ -621,16 +623,26 @@ def reports() -> str:
         ).fetchall()
         sold_items = conn.execute(
             """
-            SELECT purchase_price, sale_price, sale_date
+            SELECT purchase_price, sale_price, sale_date, sold_marketplace
             FROM items
             WHERE sale_price IS NOT NULL AND sale_date IS NOT NULL
             """
         ).fetchall()
     monthly_summary: dict[str, dict[str, float]] = {}
+    monthly_marketplace: dict[str, dict[str, float]] = {}
+    available_months: set[str] = set()
+    marketplace_names: set[str] = set()
     for item in sold_items:
         try:
             sale_month = datetime.strptime(item["sale_date"], DATE_FORMAT).strftime("%Y-%m")
         except ValueError:
+            continue
+        marketplace_name = item["sold_marketplace"] or "Unlisted"
+        available_months.add(sale_month)
+        marketplace_names.add(marketplace_name)
+        if month_filter != "all" and sale_month != month_filter:
+            continue
+        if marketplace_filter != "all" and marketplace_name != marketplace_filter:
             continue
         if sale_month not in monthly_summary:
             monthly_summary[sale_month] = {
@@ -639,12 +651,17 @@ def reports() -> str:
                 "total_cost": 0.0,
                 "profit": 0.0,
             }
+        if sale_month not in monthly_marketplace:
+            monthly_marketplace[sale_month] = {}
+        if marketplace_name not in monthly_marketplace[sale_month]:
+            monthly_marketplace[sale_month][marketplace_name] = 0.0
         monthly_summary[sale_month]["count"] += 1
         monthly_summary[sale_month]["total_sales"] += float(item["sale_price"] or 0)
         monthly_summary[sale_month]["total_cost"] += float(item["purchase_price"] or 0)
         monthly_summary[sale_month]["profit"] += float(item["sale_price"] or 0) - float(
             item["purchase_price"] or 0
         )
+        monthly_marketplace[sale_month][marketplace_name] += float(item["sale_price"] or 0)
     monthly_rows = [
         {
             "month": month,
@@ -655,11 +672,18 @@ def reports() -> str:
         }
         for month, data in sorted(monthly_summary.items())
     ]
+    month_options = sorted(available_months)
+    marketplace_options = sorted(marketplace_names)
     return render_template(
         "reports.html",
         summary=summary,
         marketplace_data=marketplace_data,
         monthly_rows=monthly_rows,
+        monthly_marketplace=monthly_marketplace,
+        month_options=month_options,
+        marketplace_options=marketplace_options,
+        month_filter=month_filter,
+        marketplace_filter=marketplace_filter,
     )
 
 
