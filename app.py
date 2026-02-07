@@ -28,6 +28,16 @@ def get_db() -> sqlite3.Connection:
     return conn
 
 
+def ensure_column(conn: sqlite3.Connection, table: str, column: str, column_type: str) -> None:
+    existing = {
+        row["name"]
+        for row in conn.execute(f"PRAGMA table_info({table})").fetchall()
+    }
+    if column in existing:
+        return
+    conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {column_type}")
+
+
 def init_db() -> None:
     with get_db() as conn:
         conn.execute("PRAGMA foreign_keys = ON")
@@ -42,6 +52,7 @@ def init_db() -> None:
                 purchase_date TEXT NOT NULL,
                 purchase_source TEXT NOT NULL,
                 status TEXT NOT NULL,
+                listed_date TEXT,
                 sale_price REAL,
                 sale_date TEXT,
                 sold_marketplace TEXT,
@@ -61,6 +72,7 @@ def init_db() -> None:
             )
             """
         )
+        ensure_column(conn, "items", "listed_date", "TEXT")
         conn.execute(
             """
             CREATE INDEX IF NOT EXISTS idx_items_sku ON items (sku)
@@ -228,6 +240,7 @@ def add_item() -> Response:
     purchase_date = parse_date(request.form.get("purchase_date", ""))
     purchase_source = request.form.get("purchase_source", "").strip()
     status = request.form.get("status", "Unlisted")
+    listed_date = parse_date(request.form.get("listed_date", ""))
     notes = request.form.get("notes", "").strip() or None
 
     if not name:
@@ -245,14 +258,17 @@ def add_item() -> Response:
     if status not in STATUSES:
         flash("Invalid status.")
         return redirect(url_for("index"))
+    if request.form.get("listed_date", "").strip() and listed_date is None:
+        flash(f"Listed date must be in {DATE_FORMAT} format.")
+        return redirect(url_for("index"))
 
     with get_db() as conn:
         conn.execute(
             """
             INSERT INTO items
-                (name, sku, description, purchase_price, purchase_date, purchase_source, status, notes)
+                (name, sku, description, purchase_price, purchase_date, purchase_source, status, listed_date, notes)
             VALUES
-                (?, ?, ?, ?, ?, ?, ?, ?)
+                (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 name,
@@ -262,6 +278,7 @@ def add_item() -> Response:
                 purchase_date,
                 purchase_source,
                 status,
+                listed_date,
                 notes,
             ),
         )
@@ -309,7 +326,10 @@ def add_listing(item_id: int) -> Response:
             """,
             (item_id, marketplace, listing_url, listing_date),
         )
-        conn.execute("UPDATE items SET status = 'Listed' WHERE id = ?", (item_id,))
+        conn.execute(
+            "UPDATE items SET status = 'Listed', listed_date = ? WHERE id = ?",
+            (listing_date, item_id),
+        )
     flash("Listing added.")
     return redirect(url_for("item_detail", item_id=item_id))
 
@@ -366,6 +386,7 @@ def export_csv() -> Response:
             "purchase_date",
             "purchase_source",
             "status",
+            "listed_date",
             "sale_price",
             "sale_date",
             "sold_marketplace",
@@ -381,6 +402,7 @@ def export_csv() -> Response:
                 item["purchase_date"],
                 item["purchase_source"],
                 item["status"],
+                item["listed_date"] or "",
                 str(item["sale_price"] or ""),
                 item["sale_date"] or "",
                 item["sold_marketplace"] or "",
@@ -426,6 +448,7 @@ def import_csv() -> str | Response:
             purchase_date = parse_date(row.get("purchase_date", ""))
             purchase_source = (row.get("purchase_source") or "").strip()
             status = (row.get("status") or "Unlisted").strip() or "Unlisted"
+            listed_date = parse_date(row.get("listed_date", ""))
             sale_price = parse_decimal(row.get("sale_price", ""))
             sale_date = parse_date(row.get("sale_date", ""))
             sold_marketplace = (row.get("sold_marketplace") or "").strip() or None
@@ -441,8 +464,8 @@ def import_csv() -> str | Response:
                 """
                 INSERT INTO items
                     (name, sku, description, purchase_price, purchase_date, purchase_source, status,
-                     sale_price, sale_date, sold_marketplace, notes)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     listed_date, sale_price, sale_date, sold_marketplace, notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     name,
@@ -452,6 +475,7 @@ def import_csv() -> str | Response:
                     purchase_date,
                     purchase_source,
                     status,
+                    listed_date,
                     float(sale_price) if sale_price is not None else None,
                     sale_date,
                     sold_marketplace,

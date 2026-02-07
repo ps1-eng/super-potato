@@ -40,6 +40,7 @@ Resale Tracker is a simple web app that replaces a spreadsheet for tracking:
   - Purchase date
   - Purchase source (where bought)
   - Status (Unlisted / Listed / Sold)
+  - Listed date (optional)
   - Sale price (optional)
   - Sale date (optional)
   - Sold marketplace (optional)
@@ -98,6 +99,7 @@ Optional columns:
 - `sku`
 - `description`
 - `status` (Unlisted / Listed / Sold)
+- `listed_date` (DD/MM/YYYY)
 - `sale_price`
 - `sale_date` (DD/MM/YYYY)
 - `sold_marketplace`

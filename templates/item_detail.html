@@ -14,6 +14,7 @@
       <h3>Item details</h3>
       <ul>
         <li>Status: <strong>{{ item.status }}</strong></li>
+        <li>Listed date: {{ item.listed_date or '–' }}</li>
         <li>SKU: {{ item.sku or '–' }}</li>
         <li>Purchase price: {{ item.purchase_price | currency }}</li>
         <li>Purchase date: {{ item.purchase_date }}</li>
