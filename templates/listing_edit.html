@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="card">
+  <div class="item-header">
+    <div>
+      <h2>Edit listing</h2>
+      <p class="muted">Update the marketplace, URL, or listing date.</p>
+    </div>
+    <a class="link" href="{{ url_for('item_detail', item_id=listing.item_id) }}">Back to item</a>
+  </div>
+  <form class="grid" method="post">
+    <label>
+      Marketplace
+      <select name="marketplace">
+        {% for option in marketplaces %}
+          <option value="{{ option }}" {% if listing.marketplace == option %}selected{% endif %}>
+            {{ option }}
+          </option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      Listing URL
+      <input type="url" name="listing_url" value="{{ listing.listing_url }}" required />
+    </label>
+    <label>
+      Listing date
+      <input
+        type="date"
+        name="listing_date"
+        class="date-input"
+        placeholder="26/03/2024"
+        value="{{ listing.listing_date | input_date }}"
+        required
+      />
+    </label>
+    <button type="submit" class="primary">Save changes</button>
+  </form>
+</section>
+{% endblock %}
