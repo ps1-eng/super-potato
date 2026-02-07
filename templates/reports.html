@@ -1,0 +1,203 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="card summary">
+  <div>
+    <h3>Total spend</h3>
+    <p>{{ summary.total_purchase | currency }}</p>
+  </div>
+  <div>
+    <h3>Total sales</h3>
+    <p>{{ summary.total_sale | currency }}</p>
+  </div>
+  <div>
+    <h3>Profit</h3>
+    <p>{{ summary.profit | currency }}</p>
+  </div>
+  <div>
+    <h3>ROI</h3>
+    <p>{{ summary.roi | round(1) }}%</p>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Marketplace breakdown</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Marketplace</th>
+          <th>Items sold</th>
+          <th>Total sales</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in marketplace_data %}
+          <tr>
+            <td>{{ row.marketplace }}</td>
+            <td>{{ row.count }}</td>
+            <td>{{ row.total_sales | currency }}</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="3" class="empty">No sales yet.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card">
+  <div class="filters">
+    <h2>Monthly performance</h2>
+    <form method="get" class="filters-form">
+      <label>
+        Month
+        <select name="month">
+          <option value="all" {% if month_filter == 'all' %}selected{% endif %}>All</option>
+          {% for month in month_options %}
+            <option value="{{ month }}" {% if month_filter == month %}selected{% endif %}>
+              {{ month }}
+            </option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Marketplace
+        <select name="marketplace">
+          <option value="all" {% if marketplace_filter == 'all' %}selected{% endif %}>All</option>
+          {% for marketplace in marketplace_options %}
+            <option value="{{ marketplace }}" {% if marketplace_filter == marketplace %}selected{% endif %}>
+              {{ marketplace }}
+            </option>
+          {% endfor %}
+        </select>
+      </label>
+      <button type="submit">Apply</button>
+      <a href="{{ url_for('reports') }}" class="link">Reset</a>
+    </form>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Month</th>
+          <th>Items sold</th>
+          <th>Total sales</th>
+          <th>Total cost</th>
+          <th>Profit</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in monthly_rows %}
+          <tr>
+            <td>{{ row.month }}</td>
+            <td>{{ row.count }}</td>
+            <td>{{ row.total_sales | currency }}</td>
+            <td>{{ row.total_cost | currency }}</td>
+            <td>{{ row.profit | currency }}</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="5" class="empty">No sales data yet.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <canvas id="monthlyChart" height="120"></canvas>
+  <canvas id="marketplaceChart" height="140"></canvas>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const monthlyRows = {{ monthly_rows | tojson }};
+  const monthlyMarketplace = {{ monthly_marketplace | tojson }};
+  const monthLabels = monthlyRows.map((row) => row.month);
+  const salesData = monthlyRows.map((row) => row.total_sales);
+  const profitData = monthlyRows.map((row) => row.profit);
+
+  const chartElement = document.getElementById('monthlyChart');
+  if (chartElement) {
+    new Chart(chartElement, {
+      type: 'line',
+      data: {
+        labels: monthLabels,
+        datasets: [
+          {
+            label: 'Sales',
+            data: salesData,
+            borderColor: '#2563eb',
+            backgroundColor: 'rgba(37, 99, 235, 0.2)',
+            tension: 0.3,
+          },
+          {
+            label: 'Profit',
+            data: profitData,
+            borderColor: '#059669',
+            backgroundColor: 'rgba(5, 150, 105, 0.2)',
+            tension: 0.3,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: 'bottom',
+          },
+        },
+        scales: {
+          y: {
+            ticks: {
+              callback: (value) => `€${value}`,
+            },
+          },
+        },
+      },
+    });
+  }
+
+  const marketplaceChartElement = document.getElementById('marketplaceChart');
+  if (marketplaceChartElement) {
+    const marketplaceNames = Array.from(
+      new Set(
+        Object.values(monthlyMarketplace).flatMap((entry) => Object.keys(entry))
+      )
+    );
+    const palette = ['#2563eb', '#059669', '#f59e0b', '#9333ea', '#0ea5e9'];
+    const datasets = marketplaceNames.map((name, index) => ({
+      label: name,
+      data: monthLabels.map((month) => monthlyMarketplace[month]?.[name] ?? 0),
+      backgroundColor: palette[index % palette.length],
+    }));
+    new Chart(marketplaceChartElement, {
+      type: 'bar',
+      data: {
+        labels: monthLabels,
+        datasets,
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: 'bottom',
+          },
+        },
+        scales: {
+          x: {
+            stacked: true,
+          },
+          y: {
+            stacked: true,
+            ticks: {
+              callback: (value) => `€${value}`,
+            },
+          },
+        },
+      },
+    });
+  }
+</script>
+{% endblock %}
