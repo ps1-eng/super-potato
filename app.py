@@ -81,6 +81,11 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_listings_marketplace ON listings (marketplace)
             """
         )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_listings_listing_url ON listings (listing_url)
+            """
+        )
 
 
 init_db()
@@ -116,7 +121,11 @@ def format_currency(value: float | None) -> str:
     return f"€{value:,.2f}"
 
 
-def fetch_items(status: str | None = None, marketplace: str | None = None) -> list[sqlite3.Row]:
+def fetch_items(
+    status: str | None = None,
+    marketplace: str | None = None,
+    search: str | None = None,
+) -> list[sqlite3.Row]:
     query = """
         SELECT items.*, COUNT(listings.id) AS listing_count
         FROM items
@@ -130,6 +139,9 @@ def fetch_items(status: str | None = None, marketplace: str | None = None) -> li
     if marketplace:
         filters.append("listings.marketplace = ?")
         params.append(marketplace)
+    if search:
+        filters.append("listings.listing_url LIKE ?")
+        params.append(f"%{search}%")
     if filters:
         query += " WHERE " + " AND ".join(filters)
     query += " GROUP BY items.id ORDER BY items.id DESC"
@@ -166,7 +178,11 @@ def calculate_summary(items: Iterable[sqlite3.Row]) -> dict[str, float]:
     }
 
 
-def fetch_summary(status: str | None = None, marketplace: str | None = None) -> dict[str, float]:
+def fetch_summary(
+    status: str | None = None,
+    marketplace: str | None = None,
+    search: str | None = None,
+) -> dict[str, float]:
     query = """
         SELECT
             SUM(items.purchase_price) AS total_purchase,
@@ -182,6 +198,9 @@ def fetch_summary(status: str | None = None, marketplace: str | None = None) -> 
     if marketplace:
         filters.append("listings.marketplace = ?")
         params.append(marketplace)
+    if search:
+        filters.append("listings.listing_url LIKE ?")
+        params.append(f"%{search}%")
     if filters:
         query += " WHERE " + " AND ".join(filters)
     with get_db() as conn:
@@ -207,14 +226,16 @@ def currency_filter(value: float | None) -> str:
 def index() -> str:
     status = request.args.get("status") or None
     marketplace = request.args.get("marketplace") or None
-    items = fetch_items(status=status, marketplace=marketplace)
-    summary = fetch_summary(status=status, marketplace=marketplace)
+    search = request.args.get("search", "").strip() or None
+    items = fetch_items(status=status, marketplace=marketplace, search=search)
+    summary = fetch_summary(status=status, marketplace=marketplace, search=search)
     return render_template(
         "index.html",
         items=items,
         summary=summary,
         status=status,
         marketplace=marketplace,
+        search=search or "",
         marketplaces=MARKETPLACES,
         statuses=STATUSES,
     )
