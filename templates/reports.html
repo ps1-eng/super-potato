@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="card summary">
+  <div>
+    <h3>Total spend</h3>
+    <p>{{ summary.total_purchase | currency }}</p>
+  </div>
+  <div>
+    <h3>Total sales</h3>
+    <p>{{ summary.total_sale | currency }}</p>
+  </div>
+  <div>
+    <h3>Profit</h3>
+    <p>{{ summary.profit | currency }}</p>
+  </div>
+  <div>
+    <h3>ROI</h3>
+    <p>{{ summary.roi | round(1) }}%</p>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Marketplace breakdown</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Marketplace</th>
+          <th>Items sold</th>
+          <th>Total sales</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in marketplace_data %}
+          <tr>
+            <td>{{ row.marketplace }}</td>
+            <td>{{ row.count }}</td>
+            <td>{{ row.total_sales | currency }}</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="3" class="empty">No sales yet.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
