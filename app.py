@@ -132,6 +132,16 @@ def format_currency(value: float | None) -> str:
     return f"€{value:,.2f}"
 
 
+@app.template_filter("input_date")
+def input_date_filter(value: str | None) -> str:
+    if not value:
+        return ""
+    try:
+        return datetime.strptime(value, DATE_FORMAT).strftime("%Y-%m-%d")
+    except ValueError:
+        return value
+
+
 def fetch_items(
     status: str | None = None,
     marketplace: str | None = None,
@@ -178,6 +188,11 @@ def fetch_listings(item_id: int) -> list[sqlite3.Row]:
         return conn.execute(
             "SELECT * FROM listings WHERE item_id = ? ORDER BY id DESC", (item_id,)
         ).fetchall()
+
+
+def fetch_listing(listing_id: int) -> sqlite3.Row | None:
+    with get_db() as conn:
+        return conn.execute("SELECT * FROM listings WHERE id = ?", (listing_id,)).fetchone()
 
 
 def calculate_summary(items: Iterable[sqlite3.Row]) -> dict[str, float]:
@@ -452,6 +467,48 @@ def open_listings(item_id: int) -> str:
         return redirect(url_for("index"))
     listings = fetch_listings(item_id)
     return render_template("open_listings.html", item=item, listings=listings)
+
+
+@app.route("/listing/<int:listing_id>/edit", methods=["GET", "POST"])
+def edit_listing(listing_id: int) -> str | Response:
+    listing = fetch_listing(listing_id)
+    if listing is None:
+        flash("Listing not found.")
+        return redirect(url_for("index"))
+
+    if request.method == "GET":
+        return render_template(
+            "listing_edit.html",
+            listing=listing,
+            marketplaces=MARKETPLACES,
+            date_format=DATE_FORMAT,
+        )
+
+    marketplace = request.form.get("marketplace", "")
+    listing_url = request.form.get("listing_url", "").strip()
+    listing_date = parse_date(request.form.get("listing_date", ""))
+
+    if marketplace not in MARKETPLACES:
+        flash("Invalid marketplace.")
+        return redirect(url_for("edit_listing", listing_id=listing_id))
+    if not listing_url:
+        flash("Listing URL is required.")
+        return redirect(url_for("edit_listing", listing_id=listing_id))
+    if listing_date is None:
+        flash(f"Listing date must be in {DATE_FORMAT} format.")
+        return redirect(url_for("edit_listing", listing_id=listing_id))
+
+    with get_db() as conn:
+        conn.execute(
+            """
+            UPDATE listings
+            SET marketplace = ?, listing_url = ?, listing_date = ?
+            WHERE id = ?
+            """,
+            (marketplace, listing_url, listing_date, listing_id),
+        )
+    flash("Listing updated.")
+    return redirect(url_for("item_detail", item_id=listing["item_id"]))
 
 
 @app.route("/item/<int:item_id>/delete", methods=["POST"])

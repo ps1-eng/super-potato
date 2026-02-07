@@ -7,16 +7,7 @@
       <h2>{{ item.name }}</h2>
       <p class="muted">Purchased from {{ item.purchase_source }} on {{ item.purchase_date }}</p>
     </div>
-    <div>
-      <a class="link" href="{{ url_for('index') }}">Back to items</a>
-      <form
-        method="post"
-        action="{{ url_for('delete_item', item_id=item.id) }}"
-        onsubmit="return confirm('Delete this item and all its listings?');"
-      >
-        <button type="submit" class="button">Delete item</button>
-      </form>
-    </div>
+    <a class="link" href="{{ url_for('index') }}">Back to items</a>
   </div>
   <div class="detail-grid">
     <div>
@@ -79,6 +70,7 @@
           <th>Marketplace</th>
           <th>Listing URL</th>
           <th>Date listed</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -87,10 +79,11 @@
             <td>{{ listing.marketplace }}</td>
             <td><a href="{{ listing.listing_url }}" target="_blank" rel="noopener">{{ listing.listing_url }}</a></td>
             <td>{{ listing.listing_date or '–' }}</td>
+            <td><a href="{{ url_for('edit_listing', listing_id=listing.id) }}">Edit</a></td>
           </tr>
         {% else %}
           <tr>
-            <td colspan="3" class="empty">No listings yet.</td>
+            <td colspan="4" class="empty">No listings yet.</td>
           </tr>
         {% endfor %}
       </tbody>
@@ -99,6 +92,18 @@
   {% if listings %}
     <a class="button" href="{{ url_for('open_listings', item_id=item.id) }}">Open all listings</a>
   {% endif %}
+</section>
+
+<section class="card">
+  <h2>Delete item</h2>
+  <p class="muted">This removes the item and all associated listings.</p>
+  <form
+    method="post"
+    action="{{ url_for('delete_item', item_id=item.id) }}"
+    onsubmit="return confirm('Delete this item and all its listings?');"
+  >
+    <button type="submit" class="button">Delete item</button>
+  </form>
 </section>
 
 <section class="card">

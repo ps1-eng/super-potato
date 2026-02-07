@@ -10,6 +10,7 @@
       <li>
         <strong>{{ listing.marketplace }}</strong> —
         <a href="{{ listing.listing_url }}" target="_blank" rel="noopener">{{ listing.listing_url }}</a>
+        <a class="link" href="{{ url_for('edit_listing', listing_id=listing.id) }}">Edit</a>
       </li>
     {% else %}
       <li>No listings found.</li>
