@@ -619,10 +619,47 @@ def reports() -> str:
             ORDER BY total_sales DESC
             """
         ).fetchall()
+        sold_items = conn.execute(
+            """
+            SELECT purchase_price, sale_price, sale_date
+            FROM items
+            WHERE sale_price IS NOT NULL AND sale_date IS NOT NULL
+            """
+        ).fetchall()
+    monthly_summary: dict[str, dict[str, float]] = {}
+    for item in sold_items:
+        try:
+            sale_month = datetime.strptime(item["sale_date"], DATE_FORMAT).strftime("%Y-%m")
+        except ValueError:
+            continue
+        if sale_month not in monthly_summary:
+            monthly_summary[sale_month] = {
+                "count": 0,
+                "total_sales": 0.0,
+                "total_cost": 0.0,
+                "profit": 0.0,
+            }
+        monthly_summary[sale_month]["count"] += 1
+        monthly_summary[sale_month]["total_sales"] += float(item["sale_price"] or 0)
+        monthly_summary[sale_month]["total_cost"] += float(item["purchase_price"] or 0)
+        monthly_summary[sale_month]["profit"] += float(item["sale_price"] or 0) - float(
+            item["purchase_price"] or 0
+        )
+    monthly_rows = [
+        {
+            "month": month,
+            "count": data["count"],
+            "total_sales": data["total_sales"],
+            "total_cost": data["total_cost"],
+            "profit": data["profit"],
+        }
+        for month, data in sorted(monthly_summary.items())
+    ]
     return render_template(
         "reports.html",
         summary=summary,
         marketplace_data=marketplace_data,
+        monthly_rows=monthly_rows,
     )
 
 
