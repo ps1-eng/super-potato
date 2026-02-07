@@ -727,7 +727,7 @@ def reports() -> str:
             "total_cost": data["total_cost"],
             "profit": data["profit"],
         }
-        for month, data in sorted(monthly_summary.items())
+        for month, data in sorted(monthly_summary.items(), reverse=True)
     ]
     month_options = sorted(available_months)
     marketplace_options = sorted(marketplace_names)

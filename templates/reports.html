@@ -21,34 +21,6 @@
 </section>
 
 <section class="card">
-  <h2>Marketplace breakdown</h2>
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Marketplace</th>
-          <th>Items sold</th>
-          <th>Total sales</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in marketplace_data %}
-          <tr>
-            <td>{{ row.marketplace }}</td>
-            <td>{{ row.count }}</td>
-            <td>{{ row.total_sales | currency }}</td>
-          </tr>
-        {% else %}
-          <tr>
-            <td colspan="3" class="empty">No sales yet.</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</section>
-
-<section class="card">
   <div class="filters">
     <h2>Monthly performance</h2>
     <form method="get" class="filters-form">
@@ -108,6 +80,34 @@
   </div>
   <canvas id="monthlyChart" height="120"></canvas>
   <canvas id="marketplaceChart" height="140"></canvas>
+</section>
+
+<section class="card">
+  <h2>Marketplace breakdown</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Marketplace</th>
+          <th>Items sold</th>
+          <th>Total sales</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in marketplace_data %}
+          <tr>
+            <td>{{ row.marketplace }}</td>
+            <td>{{ row.count }}</td>
+            <td>{{ row.total_sales | currency }}</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="3" class="empty">No sales yet.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </section>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
