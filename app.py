@@ -330,6 +330,7 @@ def add_listing(item_id: int) -> Response:
     marketplace = request.form.get("marketplace", "")
     listing_url = request.form.get("listing_url", "").strip()
     listing_date = parse_date(request.form.get("listing_date", ""))
+    sku = request.form.get("sku", "").strip() or None
 
     if marketplace not in MARKETPLACES:
         flash("Invalid marketplace.")
@@ -349,6 +350,8 @@ def add_listing(item_id: int) -> Response:
             """,
             (item_id, marketplace, listing_url, listing_date),
         )
+        if sku:
+            conn.execute("UPDATE items SET sku = ? WHERE id = ?", (sku, item_id))
         conn.execute(
             "UPDATE items SET status = 'Listed', listed_date = ? WHERE id = ?",
             (listing_date, item_id),

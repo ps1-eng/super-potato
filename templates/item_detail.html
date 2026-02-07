@@ -50,6 +50,10 @@
       <input type="url" name="listing_url" placeholder="https://" required />
     </label>
     <label>
+      SKU (optional)
+      <input type="text" name="sku" value="{{ item.sku or '' }}" />
+    </label>
+    <label>
       Listing date
       <input type="date" name="listing_date" class="date-input" placeholder="26/03/2024" required />
     </label>
