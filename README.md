@@ -100,6 +100,9 @@ Optional columns:
 - `description`
 - `status` (Unlisted / Listed / Sold)
 - `listed_date` (DD/MM/YYYY)
+- `ebay_url`
+- `vinted_url`
+- `adverts_url`
 - `sale_price`
 - `sale_date` (DD/MM/YYYY)
 - `sold_marketplace`

@@ -488,6 +488,9 @@ def import_csv() -> str | Response:
             purchase_source = (row.get("purchase_source") or "").strip()
             status = (row.get("status") or "Unlisted").strip() or "Unlisted"
             listed_date = parse_date(row.get("listed_date", ""))
+            ebay_url = (row.get("ebay_url") or "").strip() or None
+            vinted_url = (row.get("vinted_url") or "").strip() or None
+            adverts_url = (row.get("adverts_url") or "").strip() or None
             sale_price = parse_decimal(row.get("sale_price", ""))
             sale_date = parse_date(row.get("sale_date", ""))
             sold_marketplace = (row.get("sold_marketplace") or "").strip() or None
@@ -499,7 +502,12 @@ def import_csv() -> str | Response:
             if status not in STATUSES:
                 status = "Unlisted"
 
-            conn.execute(
+            has_listing = any([ebay_url, vinted_url, adverts_url])
+            final_status = "Listed" if has_listing else status
+            if has_listing and listed_date is None:
+                listed_date = parse_date(row.get("purchase_date", "")) or None
+
+            cursor = conn.execute(
                 """
                 INSERT INTO items
                     (name, sku, description, purchase_price, purchase_date, purchase_source, status,
@@ -513,7 +521,7 @@ def import_csv() -> str | Response:
                     float(purchase_price),
                     purchase_date,
                     purchase_source,
-                    status,
+                    final_status,
                     listed_date,
                     float(sale_price) if sale_price is not None else None,
                     sale_date,
@@ -521,6 +529,22 @@ def import_csv() -> str | Response:
                     notes,
                 ),
             )
+            item_id = cursor.lastrowid
+            listing_rows = [
+                ("eBay", ebay_url),
+                ("Vinted", vinted_url),
+                ("Adverts.ie", adverts_url),
+            ]
+            for marketplace, listing_url in listing_rows:
+                if not listing_url:
+                    continue
+                conn.execute(
+                    """
+                    INSERT INTO listings (item_id, marketplace, listing_url, listing_date)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (item_id, marketplace, listing_url, listed_date),
+                )
             rows_inserted += 1
 
     flash(f"Imported {rows_inserted} items.")
