@@ -118,7 +118,10 @@ def parse_date(value: str) -> str | None:
     try:
         parsed = datetime.strptime(value, DATE_FORMAT)
     except ValueError:
-        return None
+        try:
+            parsed = datetime.strptime(value, "%Y-%m-%d")
+        except ValueError:
+            return None
     return parsed.strftime(DATE_FORMAT)
 
 
