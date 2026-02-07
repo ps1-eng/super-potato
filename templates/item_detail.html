@@ -14,6 +14,7 @@
       <h3>Item details</h3>
       <ul>
         <li>Status: <strong>{{ item.status }}</strong></li>
+        <li>Listed date: {{ item.listed_date or '–' }}</li>
         <li>SKU: {{ item.sku or '–' }}</li>
         <li>Purchase price: {{ item.purchase_price | currency }}</li>
         <li>Purchase date: {{ item.purchase_date }}</li>
@@ -49,8 +50,8 @@
       <input type="url" name="listing_url" placeholder="https://" required />
     </label>
     <label>
-      Listing date (DD/MM/YYYY)
-      <input type="text" name="listing_date" placeholder="25/03/2024" required />
+      Listing date
+      <input type="date" name="listing_date" class="date-input" placeholder="26/03/2024" required />
     </label>
     <button type="submit" class="primary">Add listing</button>
   </form>
@@ -95,8 +96,8 @@
       <input type="number" step="0.01" name="sale_price" required />
     </label>
     <label>
-      Sale date (DD/MM/YYYY)
-      <input type="text" name="sale_date" placeholder="25/03/2024" required />
+      Sale date
+      <input type="date" name="sale_date" class="date-input" placeholder="26/03/2024" required />
     </label>
     <label>
       Sold marketplace

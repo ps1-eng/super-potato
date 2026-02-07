@@ -28,6 +28,16 @@ def get_db() -> sqlite3.Connection:
     return conn
 
 
+def ensure_column(conn: sqlite3.Connection, table: str, column: str, column_type: str) -> None:
+    existing = {
+        row["name"]
+        for row in conn.execute(f"PRAGMA table_info({table})").fetchall()
+    }
+    if column in existing:
+        return
+    conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {column_type}")
+
+
 def init_db() -> None:
     with get_db() as conn:
         conn.execute("PRAGMA foreign_keys = ON")
@@ -42,6 +52,7 @@ def init_db() -> None:
                 purchase_date TEXT NOT NULL,
                 purchase_source TEXT NOT NULL,
                 status TEXT NOT NULL,
+                listed_date TEXT,
                 sale_price REAL,
                 sale_date TEXT,
                 sold_marketplace TEXT,
@@ -61,6 +72,7 @@ def init_db() -> None:
             )
             """
         )
+        ensure_column(conn, "items", "listed_date", "TEXT")
         conn.execute(
             """
             CREATE INDEX IF NOT EXISTS idx_items_sku ON items (sku)
@@ -79,11 +91,6 @@ def init_db() -> None:
         conn.execute(
             """
             CREATE INDEX IF NOT EXISTS idx_listings_marketplace ON listings (marketplace)
-            """
-        )
-        conn.execute(
-            """
-            CREATE INDEX IF NOT EXISTS idx_listings_listing_url ON listings (listing_url)
             """
         )
 
@@ -111,7 +118,10 @@ def parse_date(value: str) -> str | None:
     try:
         parsed = datetime.strptime(value, DATE_FORMAT)
     except ValueError:
-        return None
+        try:
+            parsed = datetime.strptime(value, "%Y-%m-%d")
+        except ValueError:
+            return None
     return parsed.strftime(DATE_FORMAT)
 
 
@@ -124,7 +134,7 @@ def format_currency(value: float | None) -> str:
 def fetch_items(
     status: str | None = None,
     marketplace: str | None = None,
-    search: str | None = None,
+    listing_url: str | None = None,
 ) -> list[sqlite3.Row]:
     query = """
         SELECT items.*, COUNT(listings.id) AS listing_count
@@ -139,9 +149,9 @@ def fetch_items(
     if marketplace:
         filters.append("listings.marketplace = ?")
         params.append(marketplace)
-    if search:
+    if listing_url:
         filters.append("listings.listing_url LIKE ?")
-        params.append(f"%{search}%")
+        params.append(f"%{listing_url}%")
     if filters:
         query += " WHERE " + " AND ".join(filters)
     query += " GROUP BY items.id ORDER BY items.id DESC"
@@ -181,7 +191,7 @@ def calculate_summary(items: Iterable[sqlite3.Row]) -> dict[str, float]:
 def fetch_summary(
     status: str | None = None,
     marketplace: str | None = None,
-    search: str | None = None,
+    listing_url: str | None = None,
 ) -> dict[str, float]:
     query = """
         SELECT
@@ -198,9 +208,9 @@ def fetch_summary(
     if marketplace:
         filters.append("listings.marketplace = ?")
         params.append(marketplace)
-    if search:
+    if listing_url:
         filters.append("listings.listing_url LIKE ?")
-        params.append(f"%{search}%")
+        params.append(f"%{listing_url}%")
     if filters:
         query += " WHERE " + " AND ".join(filters)
     with get_db() as conn:
@@ -226,16 +236,20 @@ def currency_filter(value: float | None) -> str:
 def index() -> str:
     status = request.args.get("status") or None
     marketplace = request.args.get("marketplace") or None
-    search = request.args.get("search", "").strip() or None
-    items = fetch_items(status=status, marketplace=marketplace, search=search)
-    summary = fetch_summary(status=status, marketplace=marketplace, search=search)
+    listing_url = (request.args.get("listing_url") or "").strip() or None
+    items = fetch_items(status=status, marketplace=marketplace, listing_url=listing_url)
+    summary = fetch_summary(
+        status=status,
+        marketplace=marketplace,
+        listing_url=listing_url,
+    )
     return render_template(
         "index.html",
         items=items,
         summary=summary,
         status=status,
         marketplace=marketplace,
-        search=search or "",
+        listing_url=listing_url,
         marketplaces=MARKETPLACES,
         statuses=STATUSES,
     )
@@ -249,6 +263,7 @@ def add_item() -> Response:
     purchase_date = parse_date(request.form.get("purchase_date", ""))
     purchase_source = request.form.get("purchase_source", "").strip()
     status = request.form.get("status", "Unlisted")
+    listed_date = parse_date(request.form.get("listed_date", ""))
     notes = request.form.get("notes", "").strip() or None
 
     if not name:
@@ -266,14 +281,17 @@ def add_item() -> Response:
     if status not in STATUSES:
         flash("Invalid status.")
         return redirect(url_for("index"))
+    if request.form.get("listed_date", "").strip() and listed_date is None:
+        flash(f"Listed date must be in {DATE_FORMAT} format.")
+        return redirect(url_for("index"))
 
     with get_db() as conn:
         conn.execute(
             """
             INSERT INTO items
-                (name, sku, description, purchase_price, purchase_date, purchase_source, status, notes)
+                (name, sku, description, purchase_price, purchase_date, purchase_source, status, listed_date, notes)
             VALUES
-                (?, ?, ?, ?, ?, ?, ?, ?)
+                (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 name,
@@ -283,6 +301,7 @@ def add_item() -> Response:
                 purchase_date,
                 purchase_source,
                 status,
+                listed_date,
                 notes,
             ),
         )
@@ -330,7 +349,10 @@ def add_listing(item_id: int) -> Response:
             """,
             (item_id, marketplace, listing_url, listing_date),
         )
-        conn.execute("UPDATE items SET status = 'Listed' WHERE id = ?", (item_id,))
+        conn.execute(
+            "UPDATE items SET status = 'Listed', listed_date = ? WHERE id = ?",
+            (listing_date, item_id),
+        )
     flash("Listing added.")
     return redirect(url_for("item_detail", item_id=item_id))
 
@@ -387,6 +409,7 @@ def export_csv() -> Response:
             "purchase_date",
             "purchase_source",
             "status",
+            "listed_date",
             "sale_price",
             "sale_date",
             "sold_marketplace",
@@ -402,6 +425,7 @@ def export_csv() -> Response:
                 item["purchase_date"],
                 item["purchase_source"],
                 item["status"],
+                item["listed_date"] or "",
                 str(item["sale_price"] or ""),
                 item["sale_date"] or "",
                 item["sold_marketplace"] or "",
@@ -447,6 +471,7 @@ def import_csv() -> str | Response:
             purchase_date = parse_date(row.get("purchase_date", ""))
             purchase_source = (row.get("purchase_source") or "").strip()
             status = (row.get("status") or "Unlisted").strip() or "Unlisted"
+            listed_date = parse_date(row.get("listed_date", ""))
             sale_price = parse_decimal(row.get("sale_price", ""))
             sale_date = parse_date(row.get("sale_date", ""))
             sold_marketplace = (row.get("sold_marketplace") or "").strip() or None
@@ -462,8 +487,8 @@ def import_csv() -> str | Response:
                 """
                 INSERT INTO items
                     (name, sku, description, purchase_price, purchase_date, purchase_source, status,
-                     sale_price, sale_date, sold_marketplace, notes)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     listed_date, sale_price, sale_date, sold_marketplace, notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     name,
@@ -473,6 +498,7 @@ def import_csv() -> str | Response:
                     purchase_date,
                     purchase_source,
                     status,
+                    listed_date,
                     float(sale_price) if sale_price is not None else None,
                     sale_date,
                     sold_marketplace,

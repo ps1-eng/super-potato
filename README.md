@@ -40,6 +40,7 @@ Resale Tracker is a simple web app that replaces a spreadsheet for tracking:
   - Purchase date
   - Purchase source (where bought)
   - Status (Unlisted / Listed / Sold)
+  - Listed date (optional)
   - Sale price (optional)
   - Sale date (optional)
   - Sold marketplace (optional)
@@ -64,6 +65,25 @@ python app.py
 
 The app runs at `http://localhost:5000`.
 
+### Windows setup (PowerShell)
+1) Install Python 3.11+ from https://www.python.org/downloads/windows/
+   - During install, check **“Add python.exe to PATH”**.
+2) Close and reopen PowerShell.
+3) In the project folder, run:
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python app.py
+```
+
+### Windows troubleshooting
+- **`Python was not found`**: Python isn’t installed or not on PATH. Re-run the installer and ensure
+  “Add python.exe to PATH” is checked, then reopen PowerShell.
+- **`Activate.ps1` not recognized**: the `.venv` folder wasn’t created. Run `python -m venv .venv`
+  again in the project folder, then retry activation.
+- **`pip` not recognized**: use `python -m pip install -r requirements.txt` instead.
+
 ### Environment variables
 - `RESALE_DB_PATH` (optional): path to the SQLite database file.
 - `RESALE_SECRET_KEY` (optional): Flask secret key.
@@ -79,6 +99,7 @@ Optional columns:
 - `sku`
 - `description`
 - `status` (Unlisted / Listed / Sold)
+- `listed_date` (DD/MM/YYYY)
 - `sale_price`
 - `sale_date` (DD/MM/YYYY)
 - `sold_marketplace`
