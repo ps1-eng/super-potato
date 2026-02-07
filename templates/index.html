@@ -90,12 +90,12 @@
         </select>
       </label>
       <label>
-        Listing URL contains
+        Search (item name or URL)
         <input
           type="text"
-          name="listing_url"
-          placeholder="https://"
-          value="{{ listing_url or '' }}"
+          name="search"
+          placeholder="e.g. Nike or https://"
+          value="{{ search or '' }}"
         />
       </label>
       <button type="submit">Apply</button>
@@ -151,7 +151,7 @@
       {% if page > 1 %}
         <a
           class="button"
-          href="{{ url_for('index', status=status, marketplace=marketplace, listing_url=listing_url, page=page-1) }}"
+          href="{{ url_for('index', status=status, marketplace=marketplace, search=search, page=page-1) }}"
         >
           Previous
         </a>
@@ -159,7 +159,7 @@
       {% if page < total_pages %}
         <a
           class="button"
-          href="{{ url_for('index', status=status, marketplace=marketplace, listing_url=listing_url, page=page+1) }}"
+          href="{{ url_for('index', status=status, marketplace=marketplace, search=search, page=page+1) }}"
         >
           Next
         </a>

@@ -146,6 +146,7 @@ def fetch_items(
     status: str | None = None,
     marketplace: str | None = None,
     listing_url: str | None = None,
+    search: str | None = None,
     limit: int | None = None,
     offset: int | None = None,
 ) -> list[sqlite3.Row]:
@@ -165,6 +166,9 @@ def fetch_items(
     if listing_url:
         filters.append("listings.listing_url LIKE ?")
         params.append(f"%{listing_url}%")
+    if search:
+        filters.append("(items.name LIKE ? OR listings.listing_url LIKE ?)")
+        params.extend([f"%{search}%", f"%{search}%"])
     if filters:
         query += " WHERE " + " AND ".join(filters)
     query += " GROUP BY items.id ORDER BY items.id DESC"
@@ -216,6 +220,7 @@ def fetch_summary(
     status: str | None = None,
     marketplace: str | None = None,
     listing_url: str | None = None,
+    search: str | None = None,
 ) -> dict[str, float]:
     query = """
         SELECT
@@ -235,6 +240,9 @@ def fetch_summary(
     if listing_url:
         filters.append("listings.listing_url LIKE ?")
         params.append(f"%{listing_url}%")
+    if search:
+        filters.append("(items.name LIKE ? OR listings.listing_url LIKE ?)")
+        params.extend([f"%{search}%", f"%{search}%"])
     if filters:
         query += " WHERE " + " AND ".join(filters)
     with get_db() as conn:
@@ -255,6 +263,7 @@ def fetch_item_count(
     status: str | None = None,
     marketplace: str | None = None,
     listing_url: str | None = None,
+    search: str | None = None,
 ) -> int:
     query = """
         SELECT COUNT(DISTINCT items.id) AS total
@@ -272,6 +281,9 @@ def fetch_item_count(
     if listing_url:
         filters.append("listings.listing_url LIKE ?")
         params.append(f"%{listing_url}%")
+    if search:
+        filters.append("(items.name LIKE ? OR listings.listing_url LIKE ?)")
+        params.extend([f"%{search}%", f"%{search}%"])
     if filters:
         query += " WHERE " + " AND ".join(filters)
     with get_db() as conn:
@@ -289,6 +301,7 @@ def index() -> str:
     status = request.args.get("status") or None
     marketplace = request.args.get("marketplace") or None
     listing_url = (request.args.get("listing_url") or "").strip() or None
+    search = (request.args.get("search") or "").strip() or None
     page = request.args.get("page", type=int) or 1
     per_page = 25
     offset = (page - 1) * per_page
@@ -296,6 +309,7 @@ def index() -> str:
         status=status,
         marketplace=marketplace,
         listing_url=listing_url,
+        search=search,
         limit=per_page,
         offset=offset,
     )
@@ -303,11 +317,13 @@ def index() -> str:
         status=status,
         marketplace=marketplace,
         listing_url=listing_url,
+        search=search,
     )
     total_items = fetch_item_count(
         status=status,
         marketplace=marketplace,
         listing_url=listing_url,
+        search=search,
     )
     total_pages = max(1, (total_items + per_page - 1) // per_page)
     return render_template(
@@ -317,6 +333,7 @@ def index() -> str:
         status=status,
         marketplace=marketplace,
         listing_url=listing_url,
+        search=search,
         page=page,
         total_pages=total_pages,
         total_items=total_items,
