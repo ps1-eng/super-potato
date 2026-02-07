@@ -89,6 +89,15 @@
           {% endfor %}
         </select>
       </label>
+      <label>
+        Listing URL contains
+        <input
+          type="text"
+          name="listing_url"
+          placeholder="https://"
+          value="{{ listing_url or '' }}"
+        />
+      </label>
       <button type="submit">Apply</button>
       <a href="{{ url_for('index') }}" class="link">Reset</a>
     </form>

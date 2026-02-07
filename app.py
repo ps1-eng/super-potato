@@ -131,7 +131,11 @@ def format_currency(value: float | None) -> str:
     return f"€{value:,.2f}"
 
 
-def fetch_items(status: str | None = None, marketplace: str | None = None) -> list[sqlite3.Row]:
+def fetch_items(
+    status: str | None = None,
+    marketplace: str | None = None,
+    listing_url: str | None = None,
+) -> list[sqlite3.Row]:
     query = """
         SELECT items.*, COUNT(listings.id) AS listing_count
         FROM items
@@ -145,6 +149,9 @@ def fetch_items(status: str | None = None, marketplace: str | None = None) -> li
     if marketplace:
         filters.append("listings.marketplace = ?")
         params.append(marketplace)
+    if listing_url:
+        filters.append("listings.listing_url LIKE ?")
+        params.append(f"%{listing_url}%")
     if filters:
         query += " WHERE " + " AND ".join(filters)
     query += " GROUP BY items.id ORDER BY items.id DESC"
@@ -181,7 +188,11 @@ def calculate_summary(items: Iterable[sqlite3.Row]) -> dict[str, float]:
     }
 
 
-def fetch_summary(status: str | None = None, marketplace: str | None = None) -> dict[str, float]:
+def fetch_summary(
+    status: str | None = None,
+    marketplace: str | None = None,
+    listing_url: str | None = None,
+) -> dict[str, float]:
     query = """
         SELECT
             SUM(items.purchase_price) AS total_purchase,
@@ -197,6 +208,9 @@ def fetch_summary(status: str | None = None, marketplace: str | None = None) -> 
     if marketplace:
         filters.append("listings.marketplace = ?")
         params.append(marketplace)
+    if listing_url:
+        filters.append("listings.listing_url LIKE ?")
+        params.append(f"%{listing_url}%")
     if filters:
         query += " WHERE " + " AND ".join(filters)
     with get_db() as conn:
@@ -222,14 +236,20 @@ def currency_filter(value: float | None) -> str:
 def index() -> str:
     status = request.args.get("status") or None
     marketplace = request.args.get("marketplace") or None
-    items = fetch_items(status=status, marketplace=marketplace)
-    summary = fetch_summary(status=status, marketplace=marketplace)
+    listing_url = (request.args.get("listing_url") or "").strip() or None
+    items = fetch_items(status=status, marketplace=marketplace, listing_url=listing_url)
+    summary = fetch_summary(
+        status=status,
+        marketplace=marketplace,
+        listing_url=listing_url,
+    )
     return render_template(
         "index.html",
         items=items,
         summary=summary,
         status=status,
         marketplace=marketplace,
+        listing_url=listing_url,
         marketplaces=MARKETPLACES,
         statuses=STATUSES,
     )
