@@ -111,3 +111,16 @@ Optional columns:
 ## Deployment (online)
 This is ready for a small online deployment (e.g., Render, Fly.io, or Railway).
 When you pick a host, I’ll add the exact deployment config.
+
+## Purchase source cleanup
+To normalize existing `purchase_source` values (e.g., casing or naming variants), run:
+
+```bash
+python scripts/normalize_purchase_sources.py
+```
+
+Review the dry run output, then apply updates with:
+
+```bash
+python scripts/normalize_purchase_sources.py --apply
+```

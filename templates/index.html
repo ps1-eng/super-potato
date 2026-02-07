@@ -26,7 +26,13 @@
     </label>
     <label>
       Purchase source
-      <input type="text" name="purchase_source" placeholder="Where you bought it" required />
+      <input
+        type="text"
+        name="purchase_source"
+        list="purchase-sources"
+        placeholder="Where you bought it"
+        required
+      />
     </label>
     <label>
       Status
@@ -46,6 +52,11 @@
     </label>
     <button type="submit" class="primary">Save item</button>
   </form>
+  <datalist id="purchase-sources">
+    {% for source in purchase_sources %}
+      <option value="{{ source }}"></option>
+    {% endfor %}
+  </datalist>
 </section>
 
 <section class="card summary">

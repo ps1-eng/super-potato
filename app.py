@@ -16,6 +16,98 @@ DB_PATH = Path(os.environ.get("RESALE_DB_PATH", APP_DIR / "data" / "resale.db"))
 MARKETPLACES = ["eBay", "Vinted", "Adverts.ie"]
 STATUSES = ["Unlisted", "Listed", "Sold"]
 DATE_FORMAT = "%d/%m/%Y"
+PURCHASE_SOURCE_OPTIONS = [
+    "Adverts",
+    "Ark - Bray",
+    "Auction - Downs",
+    "Auction - Lockes",
+    "Auction - Matthews",
+    "Auction - South Dublin",
+    "Auction - Other",
+    "Barnardos - Clondalkin",
+    "BRC - Belfast",
+    "Car Boot - Athy",
+    "Car Boot - Ballymun",
+    "Car Boot - Bray",
+    "Car Boot - Brockagh",
+    "Car Boot - Inch",
+    "Car Boot - Newtown",
+    "Car Boot - Tallaght",
+    "Cancer Research - Bray",
+    "Cancer Research - Kimmage",
+    "Cancer Research - Rathmines",
+    "Cancer Research - Swords",
+    "Cancer Research - Tallaght",
+    "Charity Shop",
+    "Enable Ireland - Finglas",
+    "Enable Ireland - Kimmage",
+    "Enable Ireland - Terenure",
+    "Facebook Marketplace",
+    "Five Loaves - Bray",
+    "Free",
+    "Home",
+    "Jack and Jill - Arklow",
+    "Jack and Jill - Gorey",
+    "Jack and Jill - Wicklow",
+    "Liberty - Bray",
+    "Magpies Nest - Tallaght",
+    "Marie Curie - Belfast",
+    "NTMK Charity",
+    "Oxfam - Belfast",
+    "Oxfam - Bray",
+    "Oxfam - DL",
+    "Oxfam - Rathmines",
+    "Octopus Garden - Belfast",
+    "Other",
+    "Purple House - Bray",
+    "Save the Children - Belfast",
+    "Sue Ryder - Arklow",
+    "Sue Ryder - Blackrock",
+    "Sue Ryder - Gorey",
+    "Sue Ryder - Kimmage",
+    "Sue Ryder - Wicklow",
+    "SVP - Arklow",
+    "SVP - Ballinteer",
+    "SVP - Ballyfermot",
+    "SVP - Bray",
+    "SVP - Clondalkin",
+    "SVP - Crumlin",
+    "SVP - Finglas",
+    "SVP - Firhouse",
+    "SVP - Gorey",
+    "SVP - Greystones",
+    "SVP - Kells",
+    "SVP - Kingscourt",
+    "SVP - Navan",
+    "SVP - Newtown",
+    "SVP - NTMK",
+    "SVP - Rathfarnham",
+    "SVP - Rathmines",
+    "SVP - Tallaght",
+    "SVP - Terenure",
+    "SVP - Wicklow",
+    "Temu",
+    "Thrift - Ashford",
+    "Thrift - DL",
+    "Thrift - Kilcoole",
+    "Thrift - Navan",
+    "TK Maxx",
+    "Vinted",
+    "Vision Ireland - Arklow",
+    "Vision Ireland - Clondalkin",
+    "Vision Ireland - Crumlin",
+    "Vision Ireland - DL",
+    "Vision Ireland - Finglas",
+    "Vision Ireland - Kimmage",
+    "Vision Ireland - Rathfarnam",
+    "Vision Ireland - Rathmines",
+    "Vision Ireland - Terenure",
+    "Vision Ireland - Walkinstown",
+    "Vision Ireland - Wicklow",
+    "Wholesale - Italian Vintage",
+    "Wholesale - Vintage",
+    "Wholesale - Other",
+]
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("RESALE_SECRET_KEY", "resale-dev-key")
@@ -140,6 +232,80 @@ def input_date_filter(value: str | None) -> str:
         return datetime.strptime(value, DATE_FORMAT).strftime("%Y-%m-%d")
     except ValueError:
         return value
+
+
+def normalize_purchase_source(value: str) -> str:
+    source = value.strip()
+    if not source:
+        return source
+    lower = " ".join(source.lower().split())
+    replacements = {
+        "fb": "Facebook Marketplace",
+        "facebook": "Facebook Marketplace",
+        "facebook m": "Facebook Marketplace",
+        "home": "Home",
+        "adverts": "Adverts",
+        "vinted": "Vinted",
+        "tk max": "TK Maxx",
+        "tk maxx": "TK Maxx",
+        "temu": "Temu",
+        "charity shop": "Charity Shop",
+        "free": "Free",
+        "dump": "Dump",
+    }
+    if lower in replacements:
+        return replacements[lower]
+
+    def format_location(prefix: str, location: str) -> str:
+        return f"{prefix} - {location.title()}"
+
+    if lower.startswith("svp "):
+        return format_location("SVP", lower.replace("svp", "", 1).strip())
+    if lower.startswith("vision ireland "):
+        return format_location("Vision Ireland", lower.replace("vision ireland", "", 1).strip())
+    if lower.startswith("vision "):
+        return format_location("Vision Ireland", lower.replace("vision", "", 1).strip())
+    if lower.startswith("sue ryder "):
+        return format_location("Sue Ryder", lower.replace("sue ryder", "", 1).strip())
+    if lower.startswith("cancer research "):
+        return format_location("Cancer Research", lower.replace("cancer research", "", 1).strip())
+    if lower.startswith("cancer "):
+        return format_location("Cancer Research", lower.replace("cancer", "", 1).strip())
+    if "car boot" in lower or "carboot" in lower:
+        location = lower.replace("car boot", "").replace("carboot", "").strip()
+        return format_location("Car Boot", location or "Other")
+    if "auction" in lower:
+        if "lockes" in lower:
+            return "Auction - Lockes"
+        if "matthews" in lower:
+            return "Auction - Matthews"
+        if "south dublin" in lower:
+            return "Auction - South Dublin"
+        if "downs" in lower:
+            return "Auction - Downs"
+        return "Auction - Other"
+    if "wholesale" in lower:
+        if "italian vintage" in lower:
+            return "Wholesale - Italian Vintage"
+        if "vintage" in lower:
+            return "Wholesale - Vintage"
+        return "Wholesale - Other"
+    if "thrift" in lower:
+        location = lower.replace("thrift", "").strip()
+        return format_location("Thrift", location or "Other")
+    if lower.startswith("oxfam "):
+        return format_location("Oxfam", lower.replace("oxfam", "", 1).strip())
+    if lower.startswith("jack and jill "):
+        return format_location("Jack and Jill", lower.replace("jack and jill", "", 1).strip())
+    if lower.startswith("enable "):
+        return format_location("Enable Ireland", lower.replace("enable", "", 1).strip())
+    if lower.startswith("barnardos "):
+        return format_location("Barnardos", lower.replace("barnardos", "", 1).strip())
+    if lower.startswith("ark "):
+        return format_location("Ark", lower.replace("ark", "", 1).strip())
+    if lower == "ark":
+        return "Ark - Bray"
+    return source
 
 
 def fetch_items(
@@ -337,6 +503,7 @@ def index() -> str:
         page=page,
         total_pages=total_pages,
         total_items=total_items,
+        purchase_sources=PURCHASE_SOURCE_OPTIONS,
         marketplaces=MARKETPLACES,
         statuses=STATUSES,
     )
@@ -348,7 +515,7 @@ def add_item() -> Response:
     description = request.form.get("description", "").strip() or None
     purchase_price = parse_decimal(request.form.get("purchase_price", ""))
     purchase_date = parse_date(request.form.get("purchase_date", ""))
-    purchase_source = request.form.get("purchase_source", "").strip()
+    purchase_source = normalize_purchase_source(request.form.get("purchase_source", "").strip())
     status = request.form.get("status", "Unlisted")
     listed_date = parse_date(request.form.get("listed_date", ""))
     notes = request.form.get("notes", "").strip() or None
@@ -613,7 +780,7 @@ def import_csv() -> str | Response:
             sku = (row.get("sku") or "").strip() or None
             purchase_price = parse_decimal(row.get("purchase_price", ""))
             purchase_date = parse_date(row.get("purchase_date", ""))
-            purchase_source = (row.get("purchase_source") or "").strip()
+            purchase_source = normalize_purchase_source((row.get("purchase_source") or "").strip())
             status = (row.get("status") or "Unlisted").strip() or "Unlisted"
             listed_date = parse_date(row.get("listed_date", ""))
             ebay_url = (row.get("ebay_url") or "").strip() or None
