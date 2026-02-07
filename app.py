@@ -24,6 +24,7 @@ app.config["SECRET_KEY"] = os.environ.get("RESALE_SECRET_KEY", "resale-dev-key")
 def get_db() -> sqlite3.Connection:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA foreign_keys = ON")
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -397,6 +398,18 @@ def open_listings(item_id: int) -> str:
         return redirect(url_for("index"))
     listings = fetch_listings(item_id)
     return render_template("open_listings.html", item=item, listings=listings)
+
+
+@app.route("/item/<int:item_id>/delete", methods=["POST"])
+def delete_item(item_id: int) -> Response:
+    item = fetch_item(item_id)
+    if item is None:
+        flash("Item not found.")
+        return redirect(url_for("index"))
+    with get_db() as conn:
+        conn.execute("DELETE FROM items WHERE id = ?", (item_id,))
+    flash("Item deleted.")
+    return redirect(url_for("index"))
 
 
 @app.route("/export.csv")

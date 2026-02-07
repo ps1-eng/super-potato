@@ -7,7 +7,16 @@
       <h2>{{ item.name }}</h2>
       <p class="muted">Purchased from {{ item.purchase_source }} on {{ item.purchase_date }}</p>
     </div>
-    <a class="link" href="{{ url_for('index') }}">Back to items</a>
+    <div>
+      <a class="link" href="{{ url_for('index') }}">Back to items</a>
+      <form
+        method="post"
+        action="{{ url_for('delete_item', item_id=item.id) }}"
+        onsubmit="return confirm('Delete this item and all its listings?');"
+      >
+        <button type="submit" class="button">Delete item</button>
+      </form>
+    </div>
   </div>
   <div class="detail-grid">
     <div>
