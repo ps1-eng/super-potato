@@ -145,5 +145,26 @@
       </tbody>
     </table>
   </div>
+  <div class="filters">
+    <div class="muted">Showing page {{ page }} of {{ total_pages }} ({{ total_items }} items)</div>
+    <div class="filters-form">
+      {% if page > 1 %}
+        <a
+          class="button"
+          href="{{ url_for('index', status=status, marketplace=marketplace, listing_url=listing_url, page=page-1) }}"
+        >
+          Previous
+        </a>
+      {% endif %}
+      {% if page < total_pages %}
+        <a
+          class="button"
+          href="{{ url_for('index', status=status, marketplace=marketplace, listing_url=listing_url, page=page+1) }}"
+        >
+          Next
+        </a>
+      {% endif %}
+    </div>
+  </div>
 </section>
 {% endblock %}
