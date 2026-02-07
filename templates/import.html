@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="card">
+  <h2>Import from CSV</h2>
+  <p class="muted">Dates must be in {{ date_format }} format. Required columns: name, purchase_price, purchase_date, purchase_source.</p>
+  <form method="post" enctype="multipart/form-data">
+    <input type="file" name="file" accept=".csv" required />
+    <button type="submit" class="primary">Import CSV</button>
+  </form>
+  <div class="hint">
+    <h3>Optional columns</h3>
+    <p>sku, description, status, listed_date, sale_price, sale_date, sold_marketplace, notes</p>
+  </div>
+</section>
+{% endblock %}
