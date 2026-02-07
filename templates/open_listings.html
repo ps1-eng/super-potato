@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="card">
+  <h2>Open all listings for {{ item.name }}</h2>
+  <p class="muted">This will open each listing in a new tab so you can remove the item from other marketplaces.</p>
+  <button class="primary" id="open-all">Open all listings</button>
+  <ul class="listings-list">
+    {% for listing in listings %}
+      <li>
+        <strong>{{ listing.marketplace }}</strong> —
+        <a href="{{ listing.listing_url }}" target="_blank" rel="noopener">{{ listing.listing_url }}</a>
+      </li>
+    {% else %}
+      <li>No listings found.</li>
+    {% endfor %}
+  </ul>
+  <a class="link" href="{{ url_for('item_detail', item_id=item.id) }}">Back to item</a>
+</section>
+
+<script>
+  const listings = {{ listings | tojson }};
+  const button = document.getElementById('open-all');
+  if (listings.length === 0) {
+    button.disabled = true;
+  }
+  button?.addEventListener('click', () => {
+    listings.forEach((listing, index) => {
+      setTimeout(() => {
+        window.open(listing.listing_url, '_blank', 'noopener');
+      }, index * 200);
+    });
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="card summary">
+  <div>
+    <h3>Total spend</h3>
+    <p>{{ summary.total_purchase | currency }}</p>
+  </div>
+  <div>
+    <h3>Total sales</h3>
+    <p>{{ summary.total_sale | currency }}</p>
+  </div>
+  <div>
+    <h3>Profit</h3>
+    <p>{{ summary.profit | currency }}</p>
+  </div>
+  <div>
+    <h3>ROI</h3>
+    <p>{{ summary.roi | round(1) }}%</p>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Marketplace breakdown</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Marketplace</th>
+          <th>Items sold</th>
+          <th>Total sales</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in marketplace_data %}
+          <tr>
+            <td>{{ row.marketplace }}</td>
+            <td>{{ row.count }}</td>
+            <td>{{ row.total_sales | currency }}</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="3" class="empty">No sales yet.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Monthly performance</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Month</th>
+          <th>Items sold</th>
+          <th>Total sales</th>
+          <th>Total cost</th>
+          <th>Profit</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in monthly_rows %}
+          <tr>
+            <td>{{ row.month }}</td>
+            <td>{{ row.count }}</td>
+            <td>{{ row.total_sales | currency }}</td>
+            <td>{{ row.total_cost | currency }}</td>
+            <td>{{ row.profit | currency }}</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="5" class="empty">No sales data yet.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <canvas id="monthlyChart" height="120"></canvas>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const monthlyRows = {{ monthly_rows | tojson }};
+  const monthLabels = monthlyRows.map((row) => row.month);
+  const salesData = monthlyRows.map((row) => row.total_sales);
+  const profitData = monthlyRows.map((row) => row.profit);
+
+  const chartElement = document.getElementById('monthlyChart');
+  if (chartElement) {
+    new Chart(chartElement, {
+      type: 'line',
+      data: {
+        labels: monthLabels,
+        datasets: [
+          {
+            label: 'Sales',
+            data: salesData,
+            borderColor: '#2563eb',
+            backgroundColor: 'rgba(37, 99, 235, 0.2)',
+            tension: 0.3,
+          },
+          {
+            label: 'Profit',
+            data: profitData,
+            borderColor: '#059669',
+            backgroundColor: 'rgba(5, 150, 105, 0.2)',
+            tension: 0.3,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: 'bottom',
+          },
+        },
+        scales: {
+          y: {
+            ticks: {
+              callback: (value) => `€${value}`,
+            },
+          },
+        },
+      },
+    });
+  }
+</script>
+{% endblock %}
