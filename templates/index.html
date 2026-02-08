@@ -143,10 +143,9 @@
         {% for item in items %}
           <tr>
             <td>
-              <strong class="item-name" title="{{ item.name }}">{{ item.name }}</strong>
-              <div class="muted item-meta">
-                Bought from {{ item.purchase_source }} on {{ item.purchase_date }}
-              </div>
+              <strong>{{ item.name }}</strong>
+              <div class="muted">{{ item.purchase_date }} · {{ item.purchase_source }}</div>
+              <a href="{{ url_for('item_detail', item_id=item.id) }}">View</a>
             </td>
             <td><span class="pill {{ item.status|lower }}">{{ item.status }}</span></td>
             <td>{{ item.purchase_price | currency }}</td>
@@ -207,7 +206,7 @@
                   </form>
                   <a href="{{ url_for('item_detail', item_id=item.id) }}">View item</a>
                 </div>
-              </details>
+              </form>
             </td>
           </tr>
         {% else %}
