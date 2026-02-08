@@ -144,8 +144,10 @@
         {% for item in items %}
           <tr>
             <td>
-              <strong>{{ item.name }}</strong>
-              <div class="muted">Bought from {{ item.purchase_source }} on {{ item.purchase_date }}</div>
+              <strong class="item-name" title="{{ item.name }}">{{ item.name }}</strong>
+              <div class="muted item-meta">
+                Bought from {{ item.purchase_source }} on {{ item.purchase_date }}
+              </div>
             </td>
             <td><span class="pill {{ item.status|lower }}">{{ item.status }}</span></td>
             <td>{{ item.purchase_price | currency }}</td>

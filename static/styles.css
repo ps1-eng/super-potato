@@ -208,6 +208,20 @@ th {
   font-size: 0.9rem;
 }
 
+.item-name {
+  display: inline-block;
+  max-width: 260px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
+
+.item-meta {
+  font-size: 0.85rem;
+  line-height: 1.2;
+}
+
 .filters {
   display: flex;
   justify-content: space-between;
