@@ -72,6 +72,10 @@ nav a:last-child {
   align-items: end;
 }
 
+.listing-grid {
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+}
+
 .grid label {
   display: flex;
   flex-direction: column;
@@ -345,5 +349,8 @@ td:first-child {
   }
   .span-2 {
     grid-column: span 1;
+  }
+  .listing-grid {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   }
 }
