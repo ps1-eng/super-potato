@@ -137,7 +137,7 @@
           <th>Sale</th>
           <th>Profit</th>
           <th>SKU</th>
-          <th></th>
+          <th class="actions-col"></th>
         </tr>
       </thead>
       <tbody>
@@ -166,7 +166,7 @@
                 <button type="submit" class="button">Save</button>
               </form>
             </td>
-            <td>
+            <td class="actions-col">
               <form method="post" action="{{ url_for('quick_update_item', item_id=item.id) }}">
                 <div class="filters-form action-row">
                   <input type="number" step="0.01" name="sale_price" placeholder="Sale €" />

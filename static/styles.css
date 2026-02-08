@@ -141,6 +141,7 @@ button:disabled {
 table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 th,
@@ -148,6 +149,7 @@ td {
   padding: 0.85rem 0.75rem;
   border-bottom: 1px solid var(--border);
   text-align: left;
+  vertical-align: top;
 }
 
 tbody tr:nth-child(even) {
@@ -246,6 +248,26 @@ th {
 
 .action-row {
   gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.action-row input,
+.action-row select {
+  min-width: 120px;
+  max-width: 160px;
+  flex: 1 1 120px;
+}
+
+.action-row button {
+  white-space: nowrap;
+}
+
+td:last-child .filters-form {
+  width: 100%;
+}
+
+.actions-col {
+  width: 260px;
 }
 
 .item-header {
