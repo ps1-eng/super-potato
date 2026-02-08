@@ -383,17 +383,6 @@ def fetch_sku_options() -> list[str]:
     return [row["sku"] for row in rows]
 
 
-def fetch_sale_price_options() -> list[str]:
-    with get_db() as conn:
-        rows = conn.execute(
-            """
-            SELECT DISTINCT sale_price
-            FROM items
-            WHERE sale_price IS NOT NULL
-            ORDER BY sale_price DESC
-            """
-        ).fetchall()
-    return [f"{row['sale_price']:.2f}" for row in rows]
 
 
 def calculate_summary(items: Iterable[sqlite3.Row]) -> dict[str, float]:
@@ -524,7 +513,6 @@ def index() -> str:
     )
     total_pages = max(1, (total_items + per_page - 1) // per_page)
     sku_options = fetch_sku_options()
-    sale_price_options = fetch_sale_price_options()
     return render_template(
         "index.html",
         items=items,
@@ -537,7 +525,6 @@ def index() -> str:
         total_pages=total_pages,
         total_items=total_items,
         sku_options=sku_options,
-        sale_price_options=sale_price_options,
         purchase_sources=PURCHASE_SOURCE_OPTIONS,
         marketplaces=MARKETPLACES,
         statuses=STATUSES,

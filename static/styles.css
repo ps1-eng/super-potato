@@ -212,7 +212,7 @@ th {
 
 .item-name {
   display: inline-block;
-  max-width: 260px;
+  max-width: 200px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -240,8 +240,12 @@ th {
 }
 
 .actions-col {
-  width: 260px;
-  min-width: 220px;
+  width: 220px;
+  min-width: 200px;
+}
+
+td:first-child {
+  min-width: 240px;
 }
 
 .actions-details {
