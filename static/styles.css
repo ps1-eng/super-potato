@@ -140,13 +140,12 @@ button:disabled {
 
 table {
   width: 100%;
-  border-collapse: separate;
-  border-spacing: 0 8px;
+  border-collapse: collapse;
 }
 
 th,
 td {
-  padding: 1rem 0.9rem;
+  padding: 0.85rem 0.75rem;
   border-bottom: 1px solid var(--border);
   text-align: left;
 }
@@ -156,14 +155,6 @@ th {
   font-size: 0.85rem;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-}
-
-tbody tr {
-  background: var(--card);
-}
-
-tbody tr:nth-child(even) {
-  background: #f9fafb;
 }
 
 .empty {
@@ -206,8 +197,7 @@ tbody tr:nth-child(even) {
 
 .muted {
   color: var(--muted);
-  font-size: 0.8rem;
-  line-height: 1.2;
+  font-size: 0.9rem;
 }
 
 .filters {
@@ -223,6 +213,17 @@ tbody tr:nth-child(even) {
   gap: 1rem;
   align-items: center;
   flex-wrap: wrap;
+}
+
+.inline-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.action-row {
+  gap: 0.5rem;
 }
 
 .item-header {
@@ -255,9 +256,6 @@ tbody tr:nth-child(even) {
   nav a {
     display: inline-block;
     margin-bottom: 0.5rem;
-  }
-  .item-name {
-    max-width: 200px;
   }
   .filters-form {
     width: 100%;
