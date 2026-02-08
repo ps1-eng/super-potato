@@ -150,6 +150,14 @@ td {
   text-align: left;
 }
 
+tbody tr:nth-child(even) {
+  background: #f9fafb;
+}
+
+tbody tr:hover {
+  background: #f3f4f6;
+}
+
 th {
   color: var(--muted);
   font-size: 0.85rem;
