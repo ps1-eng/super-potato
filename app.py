@@ -188,7 +188,20 @@ def init_db() -> None:
         )
 
 
+def reconcile_sold_status() -> None:
+    with get_db() as conn:
+        conn.execute(
+            """
+            UPDATE items
+            SET status = 'Sold'
+            WHERE sale_price IS NOT NULL
+              AND status = 'Listed'
+            """
+        )
+
+
 init_db()
+reconcile_sold_status()
 
 def parse_decimal(value: str) -> Decimal | None:
     if value is None:
@@ -599,6 +612,9 @@ def add_listing(item_id: int) -> Response:
         (marketplace, url) for marketplace, url in listings_to_add if url
     ]
 
+    if not sku:
+        flash("SKU is required to add a listing.")
+        return redirect(url_for("item_detail", item_id=item_id))
     if not listings_to_add:
         flash("Please enter at least one listing URL.")
         return redirect(url_for("item_detail", item_id=item_id))
@@ -853,7 +869,10 @@ def import_csv() -> str | Response:
                 status = "Unlisted"
 
             has_listing = any([ebay_url, vinted_url, adverts_url])
-            final_status = "Listed" if has_listing else status
+            if sale_price is not None:
+                final_status = "Sold"
+            else:
+                final_status = "Listed" if has_listing else status
             if has_listing and listed_date is None:
                 listed_date = parse_date(row.get("purchase_date", "")) or None
 
