@@ -1,0 +1,274 @@
+:root {
+  color-scheme: light;
+  --bg: #f7f8fb;
+  --card: #ffffff;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --primary: #2563eb;
+  --border: #e5e7eb;
+  --success: #059669;
+  --warning: #f59e0b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Inter", system-ui, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+.container {
+  width: min(1100px, 92vw);
+  margin: 0 auto;
+}
+
+.site-header {
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  padding: 1.5rem 0;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  gap: 2rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.subtitle {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+}
+
+nav a {
+  margin-right: 1rem;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+nav a:last-child {
+  margin-right: 0;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  align-items: end;
+}
+
+.grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-weight: 600;
+}
+
+input,
+select,
+textarea {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font: inherit;
+}
+
+textarea {
+  resize: vertical;
+}
+
+button,
+.button {
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 999px;
+  padding: 0.65rem 1.25rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  text-align: center;
+}
+
+button.primary {
+  justify-self: start;
+}
+
+button:disabled {
+  background: var(--border);
+  cursor: not-allowed;
+}
+
+.link {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  text-align: center;
+}
+
+.summary h3 {
+  margin-bottom: 0.3rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 0.85rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+tbody tr:nth-child(even) {
+  background: #f9fafb;
+}
+
+tbody tr:hover {
+  background: #f3f4f6;
+}
+
+th {
+  color: var(--muted);
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 2rem 0;
+}
+
+.pill {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: var(--border);
+}
+
+.pill.unlisted {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.pill.listed {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.pill.sold {
+  background: #d1fae5;
+  color: var(--success);
+}
+
+.flash {
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.filters {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.filters-form {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.inline-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.action-row {
+  gap: 0.5rem;
+}
+
+.item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.listings-list {
+  margin-top: 1rem;
+  padding-left: 1.2rem;
+}
+
+.span-2 {
+  grid-column: span 2;
+}
+
+@media (max-width: 720px) {
+  nav {
+    width: 100%;
+  }
+  nav a {
+    display: inline-block;
+    margin-bottom: 0.5rem;
+  }
+  .filters-form {
+    width: 100%;
+  }
+  .span-2 {
+    grid-column: span 1;
+  }
+}

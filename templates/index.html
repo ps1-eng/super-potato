@@ -1,0 +1,219 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="card">
+  <h2>Add item</h2>
+  <form class="grid" method="post" action="{{ url_for('add_item') }}">
+    <label>
+      Item name
+      <input type="text" name="name" required />
+    </label>
+    <label>
+      Description (optional)
+      <input type="text" name="description" />
+    </label>
+    <label>
+      SKU (optional)
+      <input type="text" name="sku" />
+    </label>
+    <label>
+      Purchase price (€)
+      <input type="number" step="0.01" name="purchase_price" required />
+    </label>
+    <label>
+      Purchase date
+      <input
+        type="date"
+        name="purchase_date"
+        class="date-input"
+        placeholder="26/03/2024"
+        value="{{ '' | today_input }}"
+        required
+      />
+    </label>
+    <label>
+      Purchase source
+      <input
+        type="text"
+        name="purchase_source"
+        list="purchase-sources"
+        placeholder="Where you bought it"
+        required
+      />
+    </label>
+    <label>
+      Status
+      <select name="status">
+        {% for option in statuses %}
+          <option value="{{ option }}">{{ option }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      Listed date (optional)
+      <input
+        type="date"
+        name="listed_date"
+        class="date-input"
+        placeholder="26/03/2024"
+        value="{{ '' | today_input }}"
+      />
+    </label>
+    <label class="span-2">
+      Notes (optional)
+      <textarea name="notes" rows="2"></textarea>
+    </label>
+    <button type="submit" class="primary">Save item</button>
+  </form>
+  <datalist id="purchase-sources">
+    {% for source in purchase_sources %}
+      <option value="{{ source }}"></option>
+    {% endfor %}
+  </datalist>
+</section>
+
+<section class="card summary">
+  <div>
+    <h3>Total spend</h3>
+    <p>{{ summary.total_purchase | currency }}</p>
+  </div>
+  <div>
+    <h3>Total sales</h3>
+    <p>{{ summary.total_sale | currency }}</p>
+  </div>
+  <div>
+    <h3>Profit</h3>
+    <p>{{ summary.profit | currency }}</p>
+  </div>
+  <div>
+    <h3>ROI</h3>
+    <p>{{ summary.roi | round(1) }}%</p>
+  </div>
+</section>
+
+<section class="card">
+  <div class="filters">
+    <h2>Inventory</h2>
+    <form method="get" class="filters-form">
+      <label>
+        Status
+        <select name="status">
+          <option value="">All</option>
+          {% for option in statuses %}
+            <option value="{{ option }}" {% if status == option %}selected{% endif %}>{{ option }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Marketplace
+        <select name="marketplace">
+          <option value="">All</option>
+          {% for option in marketplaces %}
+            <option value="{{ option }}" {% if marketplace == option %}selected{% endif %}>{{ option }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Search (item name or URL)
+        <input
+          type="text"
+          name="search"
+          placeholder="e.g. Nike or https://"
+          value="{{ search or '' }}"
+        />
+      </label>
+      <button type="submit">Apply</button>
+      <a href="{{ url_for('index') }}" class="link">Reset</a>
+    </form>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Status</th>
+          <th>Purchase</th>
+          <th>Listed</th>
+          <th>Sale</th>
+          <th>Profit</th>
+          <th>SKU</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+          <tr>
+            <td>
+              <strong>{{ item.name }}</strong>
+              <div class="muted">Bought from {{ item.purchase_source }} on {{ item.purchase_date }}</div>
+            </td>
+            <td><span class="pill {{ item.status|lower }}">{{ item.status }}</span></td>
+            <td>{{ item.purchase_price | currency }}</td>
+            <td>{{ item.listed_date or '–' }}</td>
+            <td>{{ item.sale_price | currency }}</td>
+            <td>
+              {% if item.sale_price is not none %}
+                {{ (item.sale_price - item.purchase_price) | currency }}
+              {% else %}
+                –
+              {% endif %}
+            </td>
+            <td>
+              <form method="post" action="{{ url_for('quick_update_item', item_id=item.id) }}" class="inline-form">
+                <input type="text" name="sku" value="{{ item.sku or '' }}" placeholder="SKU" />
+                <button type="submit" class="button">Save</button>
+              </form>
+            </td>
+            <td>
+              <form method="post" action="{{ url_for('quick_update_item', item_id=item.id) }}">
+                <div class="filters-form action-row">
+                  <input type="number" step="0.01" name="sale_price" placeholder="Sale €" />
+                  <select name="sold_marketplace">
+                    <option value="">Sold on...</option>
+                    {% for option in marketplaces %}
+                      <option value="{{ option }}">{{ option }}</option>
+                    {% endfor %}
+                  </select>
+                  <input
+                    type="date"
+                    name="sale_date"
+                    class="date-input"
+                    value="{{ '' | today_input }}"
+                  />
+                  <button type="submit" class="button">Mark sold</button>
+                </div>
+              </form>
+              <a href="{{ url_for('item_detail', item_id=item.id) }}">View</a>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="8" class="empty">No items yet. Add your first item above.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="filters">
+    <div class="muted">Showing page {{ page }} of {{ total_pages }} ({{ total_items }} items)</div>
+    <div class="filters-form">
+      {% if page > 1 %}
+        <a
+          class="button"
+          href="{{ url_for('index', status=status, marketplace=marketplace, search=search, page=page-1) }}"
+        >
+          Previous
+        </a>
+      {% endif %}
+      {% if page < total_pages %}
+        <a
+          class="button"
+          href="{{ url_for('index', status=status, marketplace=marketplace, search=search, page=page+1) }}"
+        >
+          Next
+        </a>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}
