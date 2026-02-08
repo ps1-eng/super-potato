@@ -145,7 +145,8 @@
           <tr>
             <td>
               <strong>{{ item.name }}</strong>
-              <div class="muted">Bought from {{ item.purchase_source }} on {{ item.purchase_date }}</div>
+              <div class="muted">{{ item.purchase_date }} · {{ item.purchase_source }}</div>
+              <a href="{{ url_for('item_detail', item_id=item.id) }}">View</a>
             </td>
             <td><span class="pill {{ item.status|lower }}">{{ item.status }}</span></td>
             <td>{{ item.purchase_price | currency }}</td>
@@ -183,7 +184,6 @@
                   <button type="submit" class="button">Mark sold</button>
                 </div>
               </form>
-              <a href="{{ url_for('item_detail', item_id=item.id) }}">View</a>
             </td>
           </tr>
         {% else %}
