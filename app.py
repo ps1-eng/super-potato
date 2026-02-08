@@ -657,6 +657,47 @@ def mark_sold(item_id: int) -> Response:
     return redirect(url_for("item_detail", item_id=item_id))
 
 
+@app.route("/item/<int:item_id>/quick-update", methods=["POST"])
+def quick_update_item(item_id: int) -> Response:
+    item = fetch_item(item_id)
+    if item is None:
+        flash("Item not found.")
+        return redirect(url_for("index"))
+
+    sku = request.form.get("sku", "").strip() or None
+    sale_price_raw = request.form.get("sale_price", "").strip()
+    sold_marketplace = request.form.get("sold_marketplace", "").strip()
+    sale_date_raw = request.form.get("sale_date", "").strip()
+
+    sale_price = parse_decimal(sale_price_raw) if sale_price_raw else None
+    sale_date = parse_date(sale_date_raw) if sale_date_raw else datetime.now().strftime(DATE_FORMAT)
+
+    with get_db() as conn:
+        if sku is not None:
+            conn.execute("UPDATE items SET sku = ? WHERE id = ?", (sku, item_id))
+
+        if sale_price is not None:
+            if sold_marketplace not in MARKETPLACES:
+                flash("Sold marketplace is required to mark as sold.")
+                return redirect(url_for("index"))
+            if sale_date is None:
+                flash(f"Sale date must be in {DATE_FORMAT} format.")
+                return redirect(url_for("index"))
+            conn.execute(
+                """
+                UPDATE items
+                SET status = 'Sold', sale_price = ?, sale_date = ?, sold_marketplace = ?
+                WHERE id = ?
+                """,
+                (float(sale_price), sale_date, sold_marketplace, item_id),
+            )
+            flash("Item updated as sold.")
+        else:
+            flash("Item updated.")
+
+    return redirect(url_for("index"))
+
+
 @app.route("/item/<int:item_id>/open-listings")
 def open_listings(item_id: int) -> str:
     item = fetch_item(item_id)
