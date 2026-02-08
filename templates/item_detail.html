@@ -8,7 +8,7 @@
       eBay URL
       <input type="url" name="ebay_url" placeholder="https://" />
     </label>
-    <label>
+    <label class="span-2">
       Vinted URL
       <input type="url" name="vinted_url" placeholder="https://" />
     </label>
@@ -17,8 +17,8 @@
       <input type="url" name="adverts_url" placeholder="https://" />
     </label>
     <label>
-      SKU (optional)
-      <input type="text" name="sku" value="{{ item.sku or '' }}" />
+      SKU
+      <input type="text" name="sku" value="{{ item.sku or '' }}" required />
     </label>
     <label>
       Listing date

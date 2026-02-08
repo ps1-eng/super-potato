@@ -138,14 +138,34 @@ button:disabled {
   overflow-x: auto;
 }
 
+.actions-dropdown {
+  display: inline-block;
+}
+
+.actions-dropdown summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--primary);
+  list-style: none;
+}
+
+.actions-dropdown summary::-webkit-details-marker {
+  display: none;
+}
+
+.actions-dropdown[open] summary {
+  margin-bottom: 0.5rem;
+}
+
 table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0 8px;
 }
 
 th,
 td {
-  padding: 0.85rem 0.75rem;
+  padding: 1rem 0.9rem;
   border-bottom: 1px solid var(--border);
   text-align: left;
 }
@@ -155,6 +175,14 @@ th {
   font-size: 0.85rem;
   letter-spacing: 0.02em;
   text-transform: uppercase;
+}
+
+tbody tr {
+  background: var(--card);
+}
+
+tbody tr:nth-child(even) {
+  background: #f9fafb;
 }
 
 .empty {
