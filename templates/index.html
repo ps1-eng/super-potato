@@ -123,7 +123,7 @@
           <th>Listed</th>
           <th>Sale</th>
           <th>Profit</th>
-          <th>Listings</th>
+          <th>SKU</th>
           <th></th>
         </tr>
       </thead>
@@ -145,7 +145,7 @@
                 –
               {% endif %}
             </td>
-            <td>{{ item.listing_count }}</td>
+            <td>{{ item.sku or '–' }}</td>
             <td><a href="{{ url_for('item_detail', item_id=item.id) }}">View</a></td>
           </tr>
         {% else %}
