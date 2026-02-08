@@ -3,18 +3,18 @@
 {% block content %}
 <section class="card">
   <h2>Add a listing</h2>
-  <form class="grid" method="post" action="{{ url_for('add_listing', item_id=item.id) }}">
+  <form class="grid listing-grid" method="post" action="{{ url_for('add_listing', item_id=item.id) }}">
     <label>
       eBay URL
       <input type="url" name="ebay_url" placeholder="https://" />
     </label>
-    <label class="span-2">
-      Vinted URL
-      <input type="url" name="vinted_url" placeholder="https://" />
-    </label>
     <label>
       Adverts.ie URL
       <input type="url" name="adverts_url" placeholder="https://" />
+    </label>
+    <label>
+      Vinted URL
+      <input type="url" name="vinted_url" placeholder="https://" />
     </label>
     <label>
       SKU
