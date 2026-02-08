@@ -629,6 +629,9 @@ def add_listing(item_id: int) -> Response:
         (marketplace, url) for marketplace, url in listings_to_add if url
     ]
 
+    if not sku:
+        flash("SKU is required to add a listing.")
+        return redirect(url_for("item_detail", item_id=item_id))
     if not listings_to_add:
         flash("Please enter at least one listing URL.")
         return redirect(url_for("item_detail", item_id=item_id))

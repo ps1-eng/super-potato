@@ -136,6 +136,7 @@
           <th>Listed</th>
           <th>Sale</th>
           <th>Profit</th>
+          <th>SKU</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -158,29 +159,18 @@
                 –
               {% endif %}
             </td>
-            <td class="actions-col">
-              <details class="actions-details">
-                <summary>Actions</summary>
-                <div class="actions-body">
-                  <form method="post" action="{{ url_for('quick_update_item', item_id=item.id) }}">
-                    <div class="actions-row">
-                      <label>
-                        SKU
-                        <input
-                          type="text"
-                          name="sku"
-                          value="{{ item.sku or '' }}"
-                          placeholder="SKU"
-                          list="sku-options"
-                        />
-                      </label>
-                      <button type="submit" class="button">Save SKU</button>
-                    </div>
-                  </form>
-                  <form method="post" action="{{ url_for('quick_update_item', item_id=item.id) }}">
-                    <div class="actions-row">
-                      <label>
-                        Sale €
+            <td>
+              {{ item.sku or '–' }}
+            </td>
+            <td>
+              <form method="post" action="{{ url_for('quick_update_item', item_id=item.id) }}">
+                <div class="filters-form">
+                  <input type="text" name="sku" placeholder="SKU" />
+                  <button type="submit" class="button">Save</button>
+                </div>
+              </form>
+              <form method="post" action="{{ url_for('quick_update_item', item_id=item.id) }}">
+                <div class="filters-form">
                   <input type="number" step="0.01" name="sale_price" placeholder="Sale €" />
                       </label>
                       <label>
