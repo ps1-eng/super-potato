@@ -140,12 +140,13 @@ button:disabled {
 
 table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0 8px;
 }
 
 th,
 td {
-  padding: 0.85rem 0.75rem;
+  padding: 1rem 0.9rem;
   border-bottom: 1px solid var(--border);
   text-align: left;
 }
@@ -155,6 +156,14 @@ th {
   font-size: 0.85rem;
   letter-spacing: 0.02em;
   text-transform: uppercase;
+}
+
+tbody tr {
+  background: var(--card);
+}
+
+tbody tr:nth-child(even) {
+  background: #f9fafb;
 }
 
 .empty {
