@@ -149,6 +149,15 @@ td {
   padding: 1rem 0.9rem;
   border-bottom: 1px solid var(--border);
   text-align: left;
+  vertical-align: top;
+}
+
+tbody tr:nth-child(even) {
+  background: #f9fafb;
+}
+
+tbody tr:hover {
+  background: #f3f4f6;
 }
 
 th {
@@ -209,6 +218,20 @@ tbody tr:nth-child(even) {
   font-size: 0.9rem;
 }
 
+.item-name {
+  display: inline-block;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
+
+.item-meta {
+  font-size: 0.85rem;
+  line-height: 1.2;
+}
+
 .filters {
   display: flex;
   justify-content: space-between;
@@ -222,6 +245,49 @@ tbody tr:nth-child(even) {
   gap: 1rem;
   align-items: center;
   flex-wrap: wrap;
+}
+
+.actions-col {
+  width: 220px;
+  min-width: 200px;
+}
+
+td:first-child {
+  min-width: 240px;
+}
+
+.actions-details {
+  width: 100%;
+}
+
+.actions-details > summary {
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+}
+
+.actions-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.actions-body {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.actions-row {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  align-items: end;
+}
+
+.actions-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-weight: 600;
 }
 
 .item-header {
