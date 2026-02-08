@@ -383,6 +383,21 @@ def fetch_listing(listing_id: int) -> sqlite3.Row | None:
         return conn.execute("SELECT * FROM listings WHERE id = ?", (listing_id,)).fetchone()
 
 
+def fetch_sku_options() -> list[str]:
+    with get_db() as conn:
+        rows = conn.execute(
+            """
+            SELECT DISTINCT sku
+            FROM items
+            WHERE sku IS NOT NULL AND sku != ''
+            ORDER BY sku
+            """
+        ).fetchall()
+    return [row["sku"] for row in rows]
+
+
+
+
 def calculate_summary(items: Iterable[sqlite3.Row]) -> dict[str, float]:
     total_purchase = 0.0
     total_sale = 0.0
@@ -510,6 +525,7 @@ def index() -> str:
         search=search,
     )
     total_pages = max(1, (total_items + per_page - 1) // per_page)
+    sku_options = fetch_sku_options()
     return render_template(
         "index.html",
         items=items,
@@ -521,6 +537,7 @@ def index() -> str:
         page=page,
         total_pages=total_pages,
         total_items=total_items,
+        sku_options=sku_options,
         purchase_sources=PURCHASE_SOURCE_OPTIONS,
         marketplaces=MARKETPLACES,
         statuses=STATUSES,

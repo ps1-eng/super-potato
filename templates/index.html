@@ -200,6 +200,11 @@
       </tbody>
     </table>
   </div>
+  <datalist id="sku-options">
+    {% for sku in sku_options %}
+      <option value="{{ sku }}"></option>
+    {% endfor %}
+  </datalist>
   <div class="filters">
     <div class="muted">Showing page {{ page }} of {{ total_pages }} ({{ total_items }} items)</div>
     <div class="filters-form">
