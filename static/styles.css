@@ -141,6 +141,7 @@ button:disabled {
 table {
   width: 100%;
   border-collapse: collapse;
+  min-width: 880px;
 }
 
 th,
@@ -155,6 +156,27 @@ th {
   font-size: 0.85rem;
   letter-spacing: 0.02em;
   text-transform: uppercase;
+}
+
+.col-item {
+  width: 100%;
+}
+
+.col-status {
+  width: 140px;
+}
+
+.col-date {
+  width: 140px;
+}
+
+.col-sku {
+  width: 220px;
+}
+
+.col-money {
+  width: 120px;
+  text-align: right;
 }
 
 .empty {

@@ -130,35 +130,35 @@
     <table>
       <thead>
         <tr>
-          <th>Item</th>
-          <th>Status</th>
-          <th>Purchase</th>
-          <th>Listed</th>
-          <th>Sale</th>
-          <th>Profit</th>
-          <th>SKU</th>
+          <th class="col-item">Item</th>
+          <th class="col-status">Status</th>
+          <th class="col-money">Purchase</th>
+          <th class="col-date">Listed</th>
+          <th class="col-money">Sale</th>
+          <th class="col-money">Profit</th>
+          <th class="col-sku">SKU</th>
           <th></th>
         </tr>
       </thead>
       <tbody>
         {% for item in items %}
           <tr>
-            <td>
+            <td class="col-item">
               <strong>{{ item.name }}</strong>
               <div class="muted">Bought from {{ item.purchase_source }} on {{ item.purchase_date }}</div>
             </td>
-            <td><span class="pill {{ item.status|lower }}">{{ item.status }}</span></td>
-            <td>{{ item.purchase_price | currency }}</td>
-            <td>{{ item.listed_date or '–' }}</td>
-            <td>{{ item.sale_price | currency }}</td>
-            <td>
+            <td class="col-status"><span class="pill {{ item.status|lower }}">{{ item.status }}</span></td>
+            <td class="col-money">{{ item.purchase_price | currency }}</td>
+            <td class="col-date">{{ item.listed_date or '–' }}</td>
+            <td class="col-money">{{ item.sale_price | currency }}</td>
+            <td class="col-money">
               {% if item.sale_price is not none %}
                 {{ (item.sale_price - item.purchase_price) | currency }}
               {% else %}
                 –
               {% endif %}
             </td>
-            <td>
+            <td class="col-sku">
               <form method="post" action="{{ url_for('quick_update_item', item_id=item.id) }}">
                 <input type="text" name="sku" value="{{ item.sku or '' }}" placeholder="SKU" />
                 <button type="submit" class="button">Save</button>
