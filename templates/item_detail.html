@@ -5,16 +5,16 @@
   <h2>Add a listing</h2>
   <form class="grid" method="post" action="{{ url_for('add_listing', item_id=item.id) }}">
     <label>
-      Marketplace
-      <select name="marketplace">
-        {% for option in marketplaces %}
-          <option value="{{ option }}">{{ option }}</option>
-        {% endfor %}
-      </select>
+      eBay URL
+      <input type="url" name="ebay_url" placeholder="https://" />
     </label>
     <label>
-      Listing URL
-      <input type="url" name="listing_url" placeholder="https://" required />
+      Vinted URL
+      <input type="url" name="vinted_url" placeholder="https://" />
+    </label>
+    <label>
+      Adverts.ie URL
+      <input type="url" name="adverts_url" placeholder="https://" />
     </label>
     <label>
       SKU (optional)
@@ -22,7 +22,14 @@
     </label>
     <label>
       Listing date
-      <input type="date" name="listing_date" class="date-input" placeholder="26/03/2024" required />
+      <input
+        type="date"
+        name="listing_date"
+        class="date-input"
+        placeholder="26/03/2024"
+        value="{{ '' | today_input }}"
+        required
+      />
     </label>
     <button type="submit" class="primary">Add listing</button>
   </form>
@@ -37,7 +44,14 @@
     </label>
     <label>
       Sale date
-      <input type="date" name="sale_date" class="date-input" placeholder="26/03/2024" required />
+      <input
+        type="date"
+        name="sale_date"
+        class="date-input"
+        placeholder="26/03/2024"
+        value="{{ '' | today_input }}"
+        required
+      />
     </label>
     <label>
       Sold marketplace

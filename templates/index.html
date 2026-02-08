@@ -22,7 +22,14 @@
     </label>
     <label>
       Purchase date
-      <input type="date" name="purchase_date" class="date-input" placeholder="26/03/2024" required />
+      <input
+        type="date"
+        name="purchase_date"
+        class="date-input"
+        placeholder="26/03/2024"
+        value="{{ '' | today_input }}"
+        required
+      />
     </label>
     <label>
       Purchase source
@@ -44,7 +51,13 @@
     </label>
     <label>
       Listed date (optional)
-      <input type="date" name="listed_date" class="date-input" placeholder="26/03/2024" />
+      <input
+        type="date"
+        name="listed_date"
+        class="date-input"
+        placeholder="26/03/2024"
+        value="{{ '' | today_input }}"
+      />
     </label>
     <label class="span-2">
       Notes (optional)

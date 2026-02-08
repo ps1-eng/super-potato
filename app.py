@@ -224,6 +224,11 @@ def format_currency(value: float | None) -> str:
     return f"€{value:,.2f}"
 
 
+@app.template_filter("today_input")
+def today_input_filter(_: str | None = None) -> str:
+    return datetime.now().strftime("%Y-%m-%d")
+
+
 @app.template_filter("input_date")
 def input_date_filter(value: str | None) -> str:
     if not value:
@@ -581,29 +586,38 @@ def item_detail(item_id: int) -> str:
 
 @app.route("/item/<int:item_id>/listing", methods=["POST"])
 def add_listing(item_id: int) -> Response:
-    marketplace = request.form.get("marketplace", "")
-    listing_url = request.form.get("listing_url", "").strip()
-    listing_date = parse_date(request.form.get("listing_date", ""))
+    listing_date_raw = request.form.get("listing_date", "")
+    listing_date = parse_date(listing_date_raw) if listing_date_raw.strip() else None
     sku = request.form.get("sku", "").strip() or None
+    listing_date = listing_date or datetime.now().strftime(DATE_FORMAT)
+    listings_to_add = [
+        ("eBay", request.form.get("ebay_url", "").strip()),
+        ("Vinted", request.form.get("vinted_url", "").strip()),
+        ("Adverts.ie", request.form.get("adverts_url", "").strip()),
+    ]
+    listings_to_add = [
+        (marketplace, url) for marketplace, url in listings_to_add if url
+    ]
 
-    if marketplace not in MARKETPLACES:
-        flash("Invalid marketplace.")
-        return redirect(url_for("item_detail", item_id=item_id))
-    if not listing_url:
-        flash("Listing URL is required.")
+    if not listings_to_add:
+        flash("Please enter at least one listing URL.")
         return redirect(url_for("item_detail", item_id=item_id))
     if listing_date is None:
         flash(f"Listing date must be in {DATE_FORMAT} format.")
         return redirect(url_for("item_detail", item_id=item_id))
 
     with get_db() as conn:
-        conn.execute(
-            """
-            INSERT INTO listings (item_id, marketplace, listing_url, listing_date)
-            VALUES (?, ?, ?, ?)
-            """,
-            (item_id, marketplace, listing_url, listing_date),
-        )
+        for marketplace, listing_url in listings_to_add:
+            if marketplace not in MARKETPLACES:
+                flash("Invalid marketplace.")
+                return redirect(url_for("item_detail", item_id=item_id))
+            conn.execute(
+                """
+                INSERT INTO listings (item_id, marketplace, listing_url, listing_date)
+                VALUES (?, ?, ?, ?)
+                """,
+                (item_id, marketplace, listing_url, listing_date),
+            )
         if sku:
             conn.execute("UPDATE items SET sku = ? WHERE id = ?", (sku, item_id))
         conn.execute(
