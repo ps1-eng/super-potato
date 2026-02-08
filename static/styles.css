@@ -157,6 +157,15 @@ th {
   text-transform: uppercase;
 }
 
+.item-name {
+  display: inline-block;
+  max-width: 280px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
+
 .empty {
   text-align: center;
   color: var(--muted);
@@ -245,6 +254,9 @@ th {
   nav a {
     display: inline-block;
     margin-bottom: 0.5rem;
+  }
+  .item-name {
+    max-width: 200px;
   }
   .filters-form {
     width: 100%;
