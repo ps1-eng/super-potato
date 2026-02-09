@@ -119,6 +119,29 @@ button:disabled {
   cursor: not-allowed;
 }
 
+.simple-list {
+  margin-top: 1rem;
+}
+
+.settings-table {
+  width: 100%;
+  margin-top: 0.5rem;
+  border-collapse: collapse;
+}
+
+.settings-table th,
+.settings-table td {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.inline-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
 .link {
   color: var(--primary);
   text-decoration: none;
