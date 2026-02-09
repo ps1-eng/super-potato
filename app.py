@@ -590,6 +590,11 @@ def index() -> str:
     )
 
 
+@app.route("/settings")
+def settings() -> str:
+    return render_template("settings.html", purchase_sources=fetch_purchase_sources())
+
+
 @app.route("/item/new", methods=["POST"])
 def add_item() -> Response:
     name = request.form.get("name", "").strip()
@@ -651,7 +656,7 @@ def add_purchase_source() -> Response:
     name = normalize_purchase_source(raw_name)
     if not name:
         flash("Purchase source name is required.")
-        return redirect(url_for("index"))
+        return redirect(url_for("settings"))
 
     with get_db() as conn:
         existing = conn.execute(
@@ -660,13 +665,13 @@ def add_purchase_source() -> Response:
         ).fetchone()
         if existing:
             flash("Purchase source already exists.")
-            return redirect(url_for("index"))
+            return redirect(url_for("settings"))
         conn.execute(
             "INSERT INTO purchase_sources (name) VALUES (?)",
             (name,),
         )
     flash("Purchase source added.")
-    return redirect(url_for("index"))
+    return redirect(url_for("settings"))
 
 
 @app.route("/item/<int:item_id>")

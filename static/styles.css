@@ -119,27 +119,17 @@ button:disabled {
   cursor: not-allowed;
 }
 
-details summary {
-  cursor: pointer;
-  font-weight: 600;
+.simple-list {
   margin-top: 1rem;
 }
 
-.pill-list {
-  list-style: none;
-  padding: 0;
-  margin: 0.75rem 0 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+.simple-list ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
 }
 
-.pill-list li {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 0.35rem 0.75rem;
-  font-size: 0.85rem;
+.simple-list li {
+  margin-bottom: 0.35rem;
 }
 
 .link {
