@@ -119,6 +119,19 @@ button:disabled {
   cursor: not-allowed;
 }
 
+.simple-list {
+  margin-top: 1rem;
+}
+
+.simple-list ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.simple-list li {
+  margin-bottom: 0.35rem;
+}
+
 .link {
   color: var(--primary);
   text-decoration: none;
