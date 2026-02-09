@@ -73,29 +73,6 @@
   </datalist>
 </section>
 
-<section class="card">
-  <h2>Manage purchase sources</h2>
-  <form class="grid" method="post" action="{{ url_for('add_purchase_source') }}">
-    <label class="span-2">
-      New purchase source
-      <input
-        type="text"
-        name="purchase_source_name"
-        placeholder="Add a new purchase source"
-        required
-      />
-    </label>
-    <button type="submit" class="primary">Add source</button>
-  </form>
-  <details>
-    <summary>View current sources ({{ purchase_sources | length }})</summary>
-    <ul class="pill-list">
-      {% for source in purchase_sources %}
-        <li>{{ source }}</li>
-      {% endfor %}
-    </ul>
-  </details>
-</section>
 
 <section class="card summary">
   <div>
