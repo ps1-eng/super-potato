@@ -136,6 +136,15 @@ def init_db() -> None:
         conn.execute("PRAGMA foreign_keys = ON")
         conn.execute(
             """
+            CREATE TABLE IF NOT EXISTS purchase_sources (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                active INTEGER NOT NULL DEFAULT 1
+            )
+            """
+        )
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS items (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
@@ -166,6 +175,17 @@ def init_db() -> None:
             """
         )
         ensure_column(conn, "items", "listed_date", "TEXT")
+        conn.executemany(
+            "INSERT OR IGNORE INTO purchase_sources (name) VALUES (?)",
+            [(source,) for source in PURCHASE_SOURCE_OPTIONS],
+        )
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO purchase_sources (name)
+            SELECT DISTINCT purchase_source FROM items
+            WHERE purchase_source IS NOT NULL AND purchase_source <> ''
+            """
+        )
         conn.execute(
             """
             CREATE INDEX IF NOT EXISTS idx_items_sku ON items (sku)
@@ -184,6 +204,11 @@ def init_db() -> None:
         conn.execute(
             """
             CREATE INDEX IF NOT EXISTS idx_listings_marketplace ON listings (marketplace)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_purchase_sources_active ON purchase_sources (active)
             """
         )
 
@@ -324,6 +349,27 @@ def normalize_purchase_source(value: str) -> str:
     if lower == "ark":
         return "Ark - Bray"
     return source
+
+
+def ensure_purchase_source(conn: sqlite3.Connection, source: str) -> None:
+    if not source:
+        return
+    conn.execute(
+        "INSERT OR IGNORE INTO purchase_sources (name) VALUES (?)",
+        (source,),
+    )
+
+
+def fetch_purchase_sources(active_only: bool = True) -> list[str]:
+    query = "SELECT name FROM purchase_sources"
+    params: list[int] = []
+    if active_only:
+        query += " WHERE active = ?"
+        params.append(1)
+    query += " ORDER BY name COLLATE NOCASE"
+    with get_db() as conn:
+        rows = conn.execute(query, params).fetchall()
+    return [row["name"] for row in rows]
 
 
 def fetch_items(
@@ -538,7 +584,7 @@ def index() -> str:
         total_pages=total_pages,
         total_items=total_items,
         sku_options=sku_options,
-        purchase_sources=PURCHASE_SOURCE_OPTIONS,
+        purchase_sources=fetch_purchase_sources(),
         marketplaces=MARKETPLACES,
         statuses=STATUSES,
     )
@@ -575,6 +621,7 @@ def add_item() -> Response:
         return redirect(url_for("index"))
 
     with get_db() as conn:
+        ensure_purchase_source(conn, purchase_source)
         conn.execute(
             """
             INSERT INTO items
@@ -595,6 +642,30 @@ def add_item() -> Response:
             ),
         )
     flash("Item added.")
+    return redirect(url_for("index"))
+
+
+@app.route("/purchase-sources", methods=["POST"])
+def add_purchase_source() -> Response:
+    raw_name = request.form.get("purchase_source_name", "")
+    name = normalize_purchase_source(raw_name)
+    if not name:
+        flash("Purchase source name is required.")
+        return redirect(url_for("index"))
+
+    with get_db() as conn:
+        existing = conn.execute(
+            "SELECT 1 FROM purchase_sources WHERE name = ?",
+            (name,),
+        ).fetchone()
+        if existing:
+            flash("Purchase source already exists.")
+            return redirect(url_for("index"))
+        conn.execute(
+            "INSERT INTO purchase_sources (name) VALUES (?)",
+            (name,),
+        )
+    flash("Purchase source added.")
     return redirect(url_for("index"))
 
 
@@ -885,6 +956,7 @@ def import_csv() -> str | Response:
             if status not in STATUSES:
                 status = "Unlisted"
 
+            ensure_purchase_source(conn, purchase_source)
             has_listing = any([ebay_url, vinted_url, adverts_url])
             if sale_price is not None:
                 final_status = "Sold"
