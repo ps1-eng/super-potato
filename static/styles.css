@@ -123,15 +123,25 @@ button:disabled {
   margin-top: 1rem;
 }
 
-.simple-list ul {
-  margin: 0.5rem 0 0;
-  padding-left: 1.25rem;
+.settings-table {
+  width: 100%;
+  margin-top: 0.5rem;
+  border-collapse: collapse;
 }
 
-.simple-list li {
-  margin-bottom: 0.35rem;
+.settings-table th,
+.settings-table td {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
 }
 
+.inline-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
 .link {
   color: var(--primary);
   text-decoration: none;

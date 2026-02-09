@@ -17,11 +17,68 @@
   </form>
   <div class="simple-list">
     <p class="muted">Current sources ({{ purchase_sources | length }})</p>
-    <ul>
-      {% for source in purchase_sources %}
-        <li>{{ source }}</li>
-      {% endfor %}
-    </ul>
+    <table class="settings-table">
+      <thead>
+        <tr>
+          <th>Source</th>
+          <th>Listings</th>
+          <th>Rename</th>
+          <th>Delete</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for source in purchase_sources %}
+          <tr>
+            <td>{{ source.name }}</td>
+            <td>{{ source.item_count }}</td>
+            <td>
+              <form
+                class="inline-form"
+                method="post"
+                action="{{ url_for('rename_purchase_source', source_id=source.id) }}"
+              >
+                <input type="text" name="purchase_source_name" placeholder="New name" required />
+                <button type="submit" class="button">Save</button>
+              </form>
+            </td>
+            <td>
+              <form
+                class="inline-form"
+                method="post"
+                action="{{ url_for('delete_purchase_source', source_id=source.id) }}"
+              >
+                <button type="submit" class="button">Delete</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
+</section>
+
+<section class="card">
+  <h2>Merge purchase sources</h2>
+  <form class="grid" method="post" action="{{ url_for('merge_purchase_sources') }}">
+    <label>
+      Merge from
+      <select name="source_from" required>
+        <option value="">Select source</option>
+        {% for source in purchase_sources %}
+          <option value="{{ source.id }}">{{ source.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      Merge into
+      <select name="source_to" required>
+        <option value="">Select source</option>
+        {% for source in purchase_sources %}
+          <option value="{{ source.id }}">{{ source.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit" class="primary">Merge sources</button>
+  </form>
 </section>
 {% endblock %}

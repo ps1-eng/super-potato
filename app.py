@@ -372,6 +372,21 @@ def fetch_purchase_sources(active_only: bool = True) -> list[str]:
     return [row["name"] for row in rows]
 
 
+def fetch_purchase_source_usage() -> list[sqlite3.Row]:
+    query = """
+        SELECT purchase_sources.id,
+               purchase_sources.name,
+               COUNT(items.id) AS item_count
+        FROM purchase_sources
+        LEFT JOIN items ON items.purchase_source = purchase_sources.name
+        WHERE purchase_sources.active = 1
+        GROUP BY purchase_sources.id, purchase_sources.name
+        ORDER BY purchase_sources.name COLLATE NOCASE
+    """
+    with get_db() as conn:
+        return conn.execute(query).fetchall()
+
+
 def fetch_items(
     status: str | None = None,
     marketplace: str | None = None,
@@ -592,7 +607,10 @@ def index() -> str:
 
 @app.route("/settings")
 def settings() -> str:
-    return render_template("settings.html", purchase_sources=fetch_purchase_sources())
+    return render_template(
+        "settings.html",
+        purchase_sources=fetch_purchase_source_usage(),
+    )
 
 
 @app.route("/item/new", methods=["POST"])
@@ -671,6 +689,94 @@ def add_purchase_source() -> Response:
             (name,),
         )
     flash("Purchase source added.")
+    return redirect(url_for("settings"))
+
+
+@app.route("/purchase-sources/<int:source_id>/rename", methods=["POST"])
+def rename_purchase_source(source_id: int) -> Response:
+    raw_name = request.form.get("purchase_source_name", "")
+    name = normalize_purchase_source(raw_name)
+    if not name:
+        flash("Purchase source name is required.")
+        return redirect(url_for("settings"))
+
+    with get_db() as conn:
+        current = conn.execute(
+            "SELECT name FROM purchase_sources WHERE id = ?",
+            (source_id,),
+        ).fetchone()
+        if current is None:
+            flash("Purchase source not found.")
+            return redirect(url_for("settings"))
+        existing = conn.execute(
+            "SELECT 1 FROM purchase_sources WHERE name = ?",
+            (name,),
+        ).fetchone()
+        if existing:
+            flash("Purchase source already exists.")
+            return redirect(url_for("settings"))
+        conn.execute(
+            "UPDATE purchase_sources SET name = ? WHERE id = ?",
+            (name, source_id),
+        )
+        conn.execute(
+            "UPDATE items SET purchase_source = ? WHERE purchase_source = ?",
+            (name, current["name"]),
+        )
+    flash("Purchase source updated.")
+    return redirect(url_for("settings"))
+
+
+@app.route("/purchase-sources/merge", methods=["POST"])
+def merge_purchase_sources() -> Response:
+    from_id = request.form.get("source_from", type=int)
+    to_id = request.form.get("source_to", type=int)
+    if not from_id or not to_id or from_id == to_id:
+        flash("Please choose two different sources to merge.")
+        return redirect(url_for("settings"))
+
+    with get_db() as conn:
+        from_row = conn.execute(
+            "SELECT name FROM purchase_sources WHERE id = ?",
+            (from_id,),
+        ).fetchone()
+        to_row = conn.execute(
+            "SELECT name FROM purchase_sources WHERE id = ?",
+            (to_id,),
+        ).fetchone()
+        if from_row is None or to_row is None:
+            flash("Purchase source not found.")
+            return redirect(url_for("settings"))
+        conn.execute(
+            "UPDATE items SET purchase_source = ? WHERE purchase_source = ?",
+            (to_row["name"], from_row["name"]),
+        )
+        conn.execute("DELETE FROM purchase_sources WHERE id = ?", (from_id,))
+    flash("Purchase sources merged.")
+    return redirect(url_for("settings"))
+
+
+@app.route("/purchase-sources/<int:source_id>/delete", methods=["POST"])
+def delete_purchase_source(source_id: int) -> Response:
+    fallback_name = "Other"
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT name FROM purchase_sources WHERE id = ?",
+            (source_id,),
+        ).fetchone()
+        if row is None:
+            flash("Purchase source not found.")
+            return redirect(url_for("settings"))
+        if row["name"] == fallback_name:
+            flash("Cannot delete the fallback purchase source.")
+            return redirect(url_for("settings"))
+        ensure_purchase_source(conn, fallback_name)
+        conn.execute(
+            "UPDATE items SET purchase_source = ? WHERE purchase_source = ?",
+            (fallback_name, row["name"]),
+        )
+        conn.execute("DELETE FROM purchase_sources WHERE id = ?", (source_id,))
+    flash("Purchase source deleted.")
     return redirect(url_for("settings"))
 
 
