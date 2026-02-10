@@ -151,7 +151,8 @@ def init_db() -> None:
                 purchase_date TEXT NOT NULL,
                 purchase_source TEXT NOT NULL,
                 total_cost REAL NOT NULL,
-                notes TEXT
+                notes TEXT,
+                is_finalized INTEGER NOT NULL DEFAULT 0
             )
             """
         )
@@ -188,6 +189,7 @@ def init_db() -> None:
         )
         ensure_column(conn, "items", "listed_date", "TEXT")
         ensure_column(conn, "items", "lot_id", "INTEGER")
+        ensure_column(conn, "lots", "is_finalized", "INTEGER NOT NULL DEFAULT 0")
         conn.executemany(
             "INSERT OR IGNORE INTO purchase_sources (name) VALUES (?)",
             [(source,) for source in PURCHASE_SOURCE_OPTIONS],
@@ -472,6 +474,32 @@ def split_amount_evenly(total: Decimal, count: int) -> list[Decimal]:
     return values
 
 
+def lot_is_finalized(lot: sqlite3.Row) -> bool:
+    return bool(lot["is_finalized"])
+
+
+def allocate_lot_cost_evenly(conn: sqlite3.Connection, lot_id: int) -> bool:
+    lot = conn.execute(
+        "SELECT id, total_cost FROM lots WHERE id = ?",
+        (lot_id,),
+    ).fetchone()
+    if lot is None:
+        return False
+    item_rows = conn.execute(
+        "SELECT id FROM items WHERE lot_id = ? ORDER BY id",
+        (lot_id,),
+    ).fetchall()
+    if not item_rows:
+        return False
+    allocations = split_amount_evenly(Decimal(str(lot["total_cost"])), len(item_rows))
+    for row, allocation in zip(item_rows, allocations):
+        conn.execute(
+            "UPDATE items SET purchase_price = ? WHERE id = ?",
+            (float(allocation), row["id"]),
+        )
+    return True
+
+
 def fetch_items(
     status: str | None = None,
     marketplace: str | None = None,
@@ -727,7 +755,6 @@ def split_box_wizard() -> str | Response:
     purchase_source = normalize_purchase_source(request.form.get("purchase_source", "").strip())
     total_cost = parse_decimal(request.form.get("total_cost", ""))
     notes = request.form.get("notes", "").strip() or None
-    item_mode = request.form.get("item_mode", "create")
 
     if not reference:
         flash("Box reference is required.")
@@ -742,80 +769,19 @@ def split_box_wizard() -> str | Response:
         flash("Total box cost must be greater than 0.")
         return redirect(url_for("split_box_wizard"))
 
-    selected_ids = [int(v) for v in request.form.getlist("item_ids") if v.isdigit()]
-    created_item_ids: list[int] = []
-
     with get_db() as conn:
         ensure_purchase_source(conn, purchase_source)
         lot_cursor = conn.execute(
             """
-            INSERT INTO lots (reference, purchase_date, purchase_source, total_cost, notes)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO lots (reference, purchase_date, purchase_source, total_cost, notes, is_finalized)
+            VALUES (?, ?, ?, ?, ?, 0)
             """,
             (reference, purchase_date, purchase_source, float(total_cost), notes),
         )
         lot_id = lot_cursor.lastrowid
 
-        if item_mode == "create":
-            item_name = request.form.get("item_name", "").strip()
-            quantity_raw = request.form.get("quantity", "").strip()
-            status = request.form.get("status", "Unlisted")
-            item_notes = request.form.get("item_notes", "").strip() or None
-            if not item_name:
-                flash("Item name is required when creating items from the box.")
-                conn.execute("DELETE FROM lots WHERE id = ?", (lot_id,))
-                return redirect(url_for("split_box_wizard"))
-            try:
-                quantity = int(quantity_raw)
-            except ValueError:
-                quantity = 0
-            if quantity < 1 or quantity > 200:
-                flash("Quantity must be between 1 and 200.")
-                conn.execute("DELETE FROM lots WHERE id = ?", (lot_id,))
-                return redirect(url_for("split_box_wizard"))
-            if status not in STATUSES:
-                status = "Unlisted"
-            allocations = split_amount_evenly(total_cost, quantity)
-            for allocation in allocations:
-                cursor = conn.execute(
-                    """
-                    INSERT INTO items
-                        (name, sku, description, purchase_price, purchase_date, purchase_source, status, listed_date, notes, lot_id)
-                    VALUES
-                        (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        item_name,
-                        None,
-                        None,
-                        float(allocation),
-                        purchase_date,
-                        purchase_source,
-                        status,
-                        None,
-                        item_notes,
-                        lot_id,
-                    ),
-                )
-                created_item_ids.append(cursor.lastrowid)
-        else:
-            if not selected_ids:
-                flash("Select at least one existing item to allocate this box.")
-                conn.execute("DELETE FROM lots WHERE id = ?", (lot_id,))
-                return redirect(url_for("split_box_wizard"))
-            allocations = split_amount_evenly(total_cost, len(selected_ids))
-            for item_id, allocation in zip(selected_ids, allocations):
-                conn.execute(
-                    """
-                    UPDATE items
-                    SET lot_id = ?, purchase_price = ?, purchase_date = ?, purchase_source = ?
-                    WHERE id = ? AND lot_id IS NULL
-                    """,
-                    (lot_id, float(allocation), purchase_date, purchase_source, item_id),
-                )
-
-    flash("Split box saved and costs allocated.")
-    return redirect(url_for("lot_detail", lot_id=lot_id))
+    flash("Box saved as open. Add items and finalise when ready.")
+    return redirect(url_for("lot_edit", lot_id=lot_id))
 
 
 @app.route("/lots/<int:lot_id>")
@@ -826,6 +792,200 @@ def lot_detail(lot_id: int) -> str | Response:
         return redirect(url_for("lots"))
     items = fetch_lot_items(lot_id)
     return render_template("lot_detail.html", lot=lot, items=items)
+
+
+@app.route("/lots/<int:lot_id>/edit", methods=["GET", "POST"])
+def lot_edit(lot_id: int) -> str | Response:
+    lot = fetch_lot(lot_id)
+    if lot is None:
+        flash("Box not found.")
+        return redirect(url_for("lots"))
+
+    if request.method == "GET":
+        return render_template(
+            "lot_edit.html",
+            lot=lot,
+            items=fetch_lot_items(lot_id),
+            unassigned_items=fetch_unassigned_items(),
+            purchase_sources=fetch_purchase_sources(),
+        )
+
+    if lot_is_finalized(lot):
+        flash("Finalised boxes cannot be edited. Reopen first.")
+        return redirect(url_for("lot_detail", lot_id=lot_id))
+
+    reference = request.form.get("reference", "").strip()
+    purchase_date_raw = request.form.get("purchase_date", "")
+    purchase_date = parse_date(purchase_date_raw)
+    purchase_source = normalize_purchase_source(request.form.get("purchase_source", "").strip())
+    total_cost = parse_decimal(request.form.get("total_cost", ""))
+    notes = request.form.get("notes", "").strip() or None
+
+    if not reference:
+        flash("Box reference is required.")
+        return redirect(url_for("lot_edit", lot_id=lot_id))
+    if purchase_date is None:
+        flash(f"Purchase date must be in {DATE_FORMAT} format.")
+        return redirect(url_for("lot_edit", lot_id=lot_id))
+    if not purchase_source:
+        flash("Purchase source is required.")
+        return redirect(url_for("lot_edit", lot_id=lot_id))
+    if total_cost is None or total_cost <= 0:
+        flash("Total box cost must be greater than 0.")
+        return redirect(url_for("lot_edit", lot_id=lot_id))
+
+    with get_db() as conn:
+        ensure_purchase_source(conn, purchase_source)
+        conn.execute(
+            """
+            UPDATE lots
+            SET reference = ?, purchase_date = ?, purchase_source = ?, total_cost = ?, notes = ?
+            WHERE id = ?
+            """,
+            (reference, purchase_date, purchase_source, float(total_cost), notes, lot_id),
+        )
+
+    flash("Box details updated.")
+    return redirect(url_for("lot_edit", lot_id=lot_id))
+
+
+@app.route("/lots/<int:lot_id>/items/create", methods=["POST"])
+def lot_add_created_items(lot_id: int) -> Response:
+    lot = fetch_lot(lot_id)
+    if lot is None:
+        flash("Box not found.")
+        return redirect(url_for("lots"))
+    if lot_is_finalized(lot):
+        flash("Reopen the box before adding items.")
+        return redirect(url_for("lot_detail", lot_id=lot_id))
+
+    name = request.form.get("item_name", "").strip()
+    quantity_raw = request.form.get("quantity", "1").strip()
+    status = request.form.get("status", "Unlisted")
+    item_notes = request.form.get("item_notes", "").strip() or None
+
+    if not name:
+        flash("Item name is required.")
+        return redirect(url_for("lot_edit", lot_id=lot_id))
+    try:
+        quantity = int(quantity_raw)
+    except ValueError:
+        quantity = 0
+    if quantity < 1 or quantity > 200:
+        flash("Quantity must be between 1 and 200.")
+        return redirect(url_for("lot_edit", lot_id=lot_id))
+    if status not in STATUSES:
+        status = "Unlisted"
+
+    with get_db() as conn:
+        for _ in range(quantity):
+            conn.execute(
+                """
+                INSERT INTO items
+                    (name, sku, description, purchase_price, purchase_date, purchase_source, status, listed_date, notes, lot_id)
+                VALUES
+                    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    name,
+                    None,
+                    None,
+                    0.0,
+                    lot["purchase_date"],
+                    lot["purchase_source"],
+                    status,
+                    None,
+                    item_notes,
+                    lot_id,
+                ),
+            )
+
+    flash("Items added to box.")
+    return redirect(url_for("lot_edit", lot_id=lot_id))
+
+
+@app.route("/lots/<int:lot_id>/items/attach", methods=["POST"])
+def lot_attach_existing_items(lot_id: int) -> Response:
+    lot = fetch_lot(lot_id)
+    if lot is None:
+        flash("Box not found.")
+        return redirect(url_for("lots"))
+    if lot_is_finalized(lot):
+        flash("Reopen the box before adding items.")
+        return redirect(url_for("lot_detail", lot_id=lot_id))
+
+    selected_ids = [int(v) for v in request.form.getlist("item_ids") if v.isdigit()]
+    if not selected_ids:
+        flash("Select at least one unassigned item.")
+        return redirect(url_for("lot_edit", lot_id=lot_id))
+
+    with get_db() as conn:
+        for item_id in selected_ids:
+            conn.execute(
+                "UPDATE items SET lot_id = ? WHERE id = ? AND lot_id IS NULL",
+                (lot_id, item_id),
+            )
+
+    flash("Existing items added to box.")
+    return redirect(url_for("lot_edit", lot_id=lot_id))
+
+
+@app.route("/lots/<int:lot_id>/items/<int:item_id>/remove", methods=["POST"])
+def lot_remove_item(lot_id: int, item_id: int) -> Response:
+    lot = fetch_lot(lot_id)
+    if lot is None:
+        flash("Box not found.")
+        return redirect(url_for("lots"))
+    if lot_is_finalized(lot):
+        flash("Reopen the box before removing items.")
+        return redirect(url_for("lot_detail", lot_id=lot_id))
+
+    with get_db() as conn:
+        conn.execute(
+            "UPDATE items SET lot_id = NULL WHERE id = ? AND lot_id = ?",
+            (item_id, lot_id),
+        )
+
+    flash("Item removed from box.")
+    return redirect(url_for("lot_edit", lot_id=lot_id))
+
+
+@app.route("/lots/<int:lot_id>/finalize", methods=["POST"])
+def lot_finalize(lot_id: int) -> Response:
+    lot = fetch_lot(lot_id)
+    if lot is None:
+        flash("Box not found.")
+        return redirect(url_for("lots"))
+    if lot_is_finalized(lot):
+        flash("Box is already finalised.")
+        return redirect(url_for("lot_detail", lot_id=lot_id))
+
+    with get_db() as conn:
+        ok = allocate_lot_cost_evenly(conn, lot_id)
+        if not ok:
+            flash("Add at least one item before finalising.")
+            return redirect(url_for("lot_edit", lot_id=lot_id))
+        conn.execute("UPDATE lots SET is_finalized = 1 WHERE id = ?", (lot_id,))
+
+    flash("Box finalised and cost allocated evenly across items.")
+    return redirect(url_for("lot_detail", lot_id=lot_id))
+
+
+@app.route("/lots/<int:lot_id>/reopen", methods=["POST"])
+def lot_reopen(lot_id: int) -> Response:
+    lot = fetch_lot(lot_id)
+    if lot is None:
+        flash("Box not found.")
+        return redirect(url_for("lots"))
+    if not lot_is_finalized(lot):
+        flash("Box is already open.")
+        return redirect(url_for("lot_detail", lot_id=lot_id))
+
+    with get_db() as conn:
+        conn.execute("UPDATE lots SET is_finalized = 0 WHERE id = ?", (lot_id,))
+
+    flash("Box reopened. You can edit items and finalise again.")
+    return redirect(url_for("lot_edit", lot_id=lot_id))
 
 
 @app.route("/item/new", methods=["POST"])
@@ -1286,6 +1446,21 @@ def edit_listing(listing_id: int) -> str | Response:
         )
     flash("Listing updated.")
     return redirect(url_for("item_detail", item_id=listing["item_id"]))
+
+
+@app.route("/lots/<int:lot_id>/delete", methods=["POST"])
+def lot_delete(lot_id: int) -> Response:
+    lot = fetch_lot(lot_id)
+    if lot is None:
+        flash("Box not found.")
+        return redirect(url_for("lots"))
+
+    with get_db() as conn:
+        conn.execute("DELETE FROM items WHERE lot_id = ?", (lot_id,))
+        conn.execute("DELETE FROM lots WHERE id = ?", (lot_id,))
+
+    flash("Box and its items were deleted.")
+    return redirect(url_for("lots"))
 
 
 @app.route("/item/<int:item_id>/delete", methods=["POST"])

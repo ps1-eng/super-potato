@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="card">
+  <div class="item-header">
+    <div>
+      <h2>Edit box: {{ lot.reference }}</h2>
+      <p class="muted">Status: {% if lot.is_finalized %}Finalised{% else %}Open{% endif %}</p>
+    </div>
+    <a class="link" href="{{ url_for('lot_detail', lot_id=lot.id) }}">Back to box</a>
+  </div>
+
+  <form method="post" class="grid">
+    <label>
+      Box reference
+      <input type="text" name="reference" value="{{ lot.reference }}" required />
+    </label>
+    <label>
+      Total box cost (€)
+      <input type="number" step="0.01" min="0.01" name="total_cost" value="{{ lot.total_cost }}" required />
+    </label>
+    <label>
+      Purchase date
+      <input type="text" name="purchase_date" value="{{ lot.purchase_date }}" required />
+    </label>
+    <label>
+      Purchase source
+      <input type="text" name="purchase_source" list="purchase-sources" value="{{ lot.purchase_source }}" required />
+    </label>
+    <label class="span-2">
+      Box notes (optional)
+      <textarea name="notes" rows="2">{{ lot.notes or '' }}</textarea>
+    </label>
+    <button type="submit" class="primary">Save box details</button>
+  </form>
+
+  <datalist id="purchase-sources">
+    {% for source in purchase_sources %}
+      <option value="{{ source }}"></option>
+    {% endfor %}
+  </datalist>
+</section>
+
+<section class="card">
+  <h2>Add new items to this box</h2>
+  <form method="post" action="{{ url_for('lot_add_created_items', lot_id=lot.id) }}" class="grid">
+    <label>
+      Item name
+      <input type="text" name="item_name" required />
+    </label>
+    <label>
+      Quantity
+      <input type="number" name="quantity" min="1" max="200" value="1" required />
+    </label>
+    <label>
+      Status
+      <select name="status">
+        <option value="Unlisted">Unlisted</option>
+        <option value="Listed">Listed</option>
+        <option value="Sold">Sold</option>
+      </select>
+    </label>
+    <label>
+      Item notes (optional)
+      <input type="text" name="item_notes" />
+    </label>
+    <button type="submit" class="primary">Add new items</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Attach existing unassigned items</h2>
+  <form method="post" action="{{ url_for('lot_attach_existing_items', lot_id=lot.id) }}">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th></th>
+            <th>Item</th>
+            <th>Status</th>
+            <th>Current cost</th>
+            <th>Purchased</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in unassigned_items %}
+            <tr>
+              <td><input type="checkbox" name="item_ids" value="{{ item.id }}" /></td>
+              <td>{{ item.name }}</td>
+              <td>{{ item.status }}</td>
+              <td>{{ item.purchase_price | currency }}</td>
+              <td>{{ item.purchase_date }} · {{ item.purchase_source }}</td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="5" class="empty">No unassigned items available.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <button type="submit">Attach selected items</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Items currently in this box</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Status</th>
+          <th>Purchase cost</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+          <tr>
+            <td><a href="{{ url_for('item_detail', item_id=item.id) }}">{{ item.name }}</a></td>
+            <td>{{ item.status }}</td>
+            <td>{{ item.purchase_price | currency }}</td>
+            <td>
+              <form method="post" action="{{ url_for('lot_remove_item', lot_id=lot.id, item_id=item.id) }}">
+                <button type="submit">Remove</button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="4" class="empty">No items linked yet.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

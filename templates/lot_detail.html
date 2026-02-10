@@ -7,7 +7,24 @@
       <h2>{{ lot.reference }}</h2>
       <p class="muted">Purchased {{ lot.purchase_date }} from {{ lot.purchase_source }}</p>
     </div>
-    <a class="link" href="{{ url_for('lots') }}">Back to boxes</a>
+    <div class="actions-inline">
+      <a class="link" href="{{ url_for('lots') }}">Back to boxes</a>
+      {% if lot.is_finalized %}
+        <form method="post" action="{{ url_for('lot_reopen', lot_id=lot.id) }}">
+          <button type="submit" class="primary">Reopen box</button>
+        </form>
+      {% else %}
+        <form method="get" action="{{ url_for('lot_edit', lot_id=lot.id) }}">
+          <button type="submit" class="primary">Edit box</button>
+        </form>
+        <form method="post" action="{{ url_for('lot_finalize', lot_id=lot.id) }}">
+          <button type="submit" class="primary">Finalise box</button>
+        </form>
+      {% endif %}
+      <form method="post" action="{{ url_for('lot_delete', lot_id=lot.id) }}" onsubmit="return confirm('Delete this box and all linked items? This cannot be undone.');">
+        <button type="submit" class="danger">Delete box</button>
+      </form>
+    </div>
   </div>
 
   <div class="detail-grid">
