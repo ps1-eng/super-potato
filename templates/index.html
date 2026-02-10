@@ -56,7 +56,6 @@
         name="listed_date"
         class="date-input"
         placeholder="26/03/2024"
-        value="{{ '' | today_input }}"
       />
     </label>
     <label class="span-2">
@@ -148,6 +147,7 @@
               <strong>{{ item.name }}</strong>
               <div class="muted">{{ item.purchase_date }} · {{ item.purchase_source }}</div>
               <a href="{{ url_for('item_detail', item_id=item.id) }}">View</a>
+              <a href="{{ url_for('item_detail', item_id=item.id) }}">Edit</a>
             </td>
             <td><span class="pill {{ item.status|lower }}">{{ item.status }}</span></td>
             <td>{{ item.purchase_price | currency }}</td>
