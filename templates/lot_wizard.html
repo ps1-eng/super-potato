@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="card">
+  <div class="item-header">
+    <h2>Split box wizard</h2>
+    <a class="link" href="{{ url_for('lots') }}">Back to boxes</a>
+  </div>
+  <p class="muted">Create a box purchase and split the total cost evenly across either new or existing items.</p>
+
+  <form method="post" class="grid">
+    <label>
+      Box reference
+      <input type="text" name="reference" placeholder="e.g. Lockes-2026-02" required />
+    </label>
+    <label>
+      Total box cost (€)
+      <input type="number" step="0.01" min="0.01" name="total_cost" required />
+    </label>
+    <label>
+      Purchase date
+      <input type="date" name="purchase_date" value="{{ '' | today_input }}" required />
+    </label>
+    <label>
+      Purchase source
+      <input type="text" name="purchase_source" list="purchase-sources" required />
+    </label>
+
+    <label class="span-2">
+      Allocation mode
+      <select name="item_mode" id="item-mode">
+        <option value="create">Create new items and allocate</option>
+        <option value="existing">Use existing unassigned items</option>
+      </select>
+    </label>
+
+    <div id="create-mode" class="grid span-2 nested-grid">
+      <label>
+        Item name
+        <input type="text" name="item_name" placeholder="e.g. Vintage Mug" />
+      </label>
+      <label>
+        Quantity
+        <input type="number" name="quantity" min="1" max="200" value="1" />
+      </label>
+      <label>
+        Status
+        <select name="status">
+          <option value="Unlisted">Unlisted</option>
+          <option value="Listed">Listed</option>
+          <option value="Sold">Sold</option>
+        </select>
+      </label>
+      <label>
+        Item notes (optional)
+        <input type="text" name="item_notes" placeholder="Applied to all created items" />
+      </label>
+    </div>
+
+    <div id="existing-mode" class="span-2" style="display:none;">
+      <p class="muted">Pick one or more unassigned items. The wizard will set each item's purchase cost to an equal share.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th>Item</th>
+              <th>Status</th>
+              <th>Current cost</th>
+              <th>Purchased</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in unassigned_items %}
+              <tr>
+                <td><input type="checkbox" name="item_ids" value="{{ item.id }}" /></td>
+                <td>{{ item.name }}</td>
+                <td>{{ item.status }}</td>
+                <td>{{ item.purchase_price | currency }}</td>
+                <td>{{ item.purchase_date }} · {{ item.purchase_source }}</td>
+              </tr>
+            {% else %}
+              <tr>
+                <td colspan="5" class="empty">No unassigned items available.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <label class="span-2">
+      Box notes (optional)
+      <textarea name="notes" rows="2"></textarea>
+    </label>
+
+    <button type="submit" class="primary">Save and allocate</button>
+  </form>
+
+  <datalist id="purchase-sources">
+    {% for source in purchase_sources %}
+      <option value="{{ source }}"></option>
+    {% endfor %}
+  </datalist>
+</section>
+
+<script>
+  const modeSelect = document.getElementById('item-mode');
+  const createMode = document.getElementById('create-mode');
+  const existingMode = document.getElementById('existing-mode');
+
+  function updateMode() {
+    const creating = modeSelect.value === 'create';
+    createMode.style.display = creating ? 'grid' : 'none';
+    existingMode.style.display = creating ? 'none' : 'block';
+  }
+
+  modeSelect.addEventListener('change', updateMode);
+  updateMode();
+</script>
+{% endblock %}
