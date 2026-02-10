@@ -70,7 +70,10 @@
       Notes (optional)
       <textarea name="notes" rows="2"></textarea>
     </label>
-    <button type="submit" class="primary">Save item</button>
+    <div class="form-actions">
+      <button type="submit" class="primary">Save item</button>
+      <a class="button" href="{{ url_for('split_box_wizard') }}">Split box wizard</a>
+    </div>
   </form>
   <datalist id="purchase-sources">
     {% for source in purchase_sources %}
@@ -154,6 +157,7 @@
             <td>
               <strong>{{ item.name }}</strong>
               <div class="muted">{{ item.purchase_date }} · {{ item.purchase_source }}</div>
+              {% if item.lot_reference %}<div class="muted">Box: {{ item.lot_reference }}</div>{% endif %}
               <a href="{{ url_for('item_detail', item_id=item.id) }}">View</a>
               <a href="{{ url_for('edit_item', item_id=item.id) }}">Edit</a>
             </td>

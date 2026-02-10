@@ -145,6 +145,18 @@ def init_db() -> None:
         )
         conn.execute(
             """
+            CREATE TABLE IF NOT EXISTS lots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                reference TEXT NOT NULL,
+                purchase_date TEXT NOT NULL,
+                purchase_source TEXT NOT NULL,
+                total_cost REAL NOT NULL,
+                notes TEXT
+            )
+            """
+        )
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS items (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
@@ -175,6 +187,7 @@ def init_db() -> None:
             """
         )
         ensure_column(conn, "items", "listed_date", "TEXT")
+        ensure_column(conn, "items", "lot_id", "INTEGER")
         conn.executemany(
             "INSERT OR IGNORE INTO purchase_sources (name) VALUES (?)",
             [(source,) for source in PURCHASE_SOURCE_OPTIONS],
@@ -209,6 +222,11 @@ def init_db() -> None:
         conn.execute(
             """
             CREATE INDEX IF NOT EXISTS idx_purchase_sources_active ON purchase_sources (active)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_items_lot_id ON items (lot_id)
             """
         )
 
@@ -387,6 +405,73 @@ def fetch_purchase_source_usage() -> list[sqlite3.Row]:
         return conn.execute(query).fetchall()
 
 
+def fetch_lots() -> list[sqlite3.Row]:
+    query = """
+        SELECT lots.*,
+               COUNT(items.id) AS item_count,
+               COALESCE(SUM(items.purchase_price), 0) AS allocated_cost
+        FROM lots
+        LEFT JOIN items ON items.lot_id = lots.id
+        GROUP BY lots.id
+        ORDER BY lots.id DESC
+    """
+    with get_db() as conn:
+        return conn.execute(query).fetchall()
+
+
+def fetch_lot(lot_id: int) -> sqlite3.Row | None:
+    query = """
+        SELECT lots.*,
+               COUNT(items.id) AS item_count,
+               COALESCE(SUM(items.purchase_price), 0) AS allocated_cost
+        FROM lots
+        LEFT JOIN items ON items.lot_id = lots.id
+        WHERE lots.id = ?
+        GROUP BY lots.id
+    """
+    with get_db() as conn:
+        return conn.execute(query, (lot_id,)).fetchone()
+
+
+def fetch_lot_items(lot_id: int) -> list[sqlite3.Row]:
+    with get_db() as conn:
+        return conn.execute(
+            """
+            SELECT *
+            FROM items
+            WHERE lot_id = ?
+            ORDER BY id DESC
+            """,
+            (lot_id,),
+        ).fetchall()
+
+
+def fetch_unassigned_items() -> list[sqlite3.Row]:
+    with get_db() as conn:
+        return conn.execute(
+            """
+            SELECT id, name, sku, purchase_price, status, purchase_date, purchase_source
+            FROM items
+            WHERE lot_id IS NULL
+            ORDER BY id DESC
+            LIMIT 200
+            """
+        ).fetchall()
+
+
+def split_amount_evenly(total: Decimal, count: int) -> list[Decimal]:
+    if count <= 0:
+        return []
+    cents = int((total * 100).quantize(Decimal('1')))
+    base = cents // count
+    remainder = cents % count
+    values: list[Decimal] = []
+    for i in range(count):
+        cents_value = base + (1 if i < remainder else 0)
+        values.append(Decimal(cents_value) / Decimal(100))
+    return values
+
+
 def fetch_items(
     status: str | None = None,
     marketplace: str | None = None,
@@ -396,9 +481,10 @@ def fetch_items(
     offset: int | None = None,
 ) -> list[sqlite3.Row]:
     query = """
-        SELECT items.*, COUNT(listings.id) AS listing_count
+        SELECT items.*, lots.reference AS lot_reference, COUNT(listings.id) AS listing_count
         FROM items
         LEFT JOIN listings ON listings.item_id = items.id
+        LEFT JOIN lots ON lots.id = items.lot_id
     """
     filters = []
     params: list[str] = []
@@ -429,7 +515,15 @@ def fetch_items(
 
 def fetch_item(item_id: int) -> sqlite3.Row | None:
     with get_db() as conn:
-        return conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
+        return conn.execute(
+            """
+            SELECT items.*, lots.reference AS lot_reference
+            FROM items
+            LEFT JOIN lots ON lots.id = items.lot_id
+            WHERE items.id = ?
+            """,
+            (item_id,),
+        ).fetchone()
 
 
 def fetch_listings(item_id: int) -> list[sqlite3.Row]:
@@ -611,6 +705,127 @@ def settings() -> str:
         "settings.html",
         purchase_sources=fetch_purchase_source_usage(),
     )
+
+
+@app.route("/lots")
+def lots() -> str:
+    return render_template("lots.html", lots=fetch_lots())
+
+
+@app.route("/lots/new", methods=["GET", "POST"])
+def split_box_wizard() -> str | Response:
+    if request.method == "GET":
+        return render_template(
+            "lot_wizard.html",
+            purchase_sources=fetch_purchase_sources(),
+            unassigned_items=fetch_unassigned_items(),
+        )
+
+    reference = request.form.get("reference", "").strip()
+    purchase_date_raw = request.form.get("purchase_date", "")
+    purchase_date = parse_date(purchase_date_raw)
+    purchase_source = normalize_purchase_source(request.form.get("purchase_source", "").strip())
+    total_cost = parse_decimal(request.form.get("total_cost", ""))
+    notes = request.form.get("notes", "").strip() or None
+    item_mode = request.form.get("item_mode", "create")
+
+    if not reference:
+        flash("Box reference is required.")
+        return redirect(url_for("split_box_wizard"))
+    if purchase_date is None:
+        flash(f"Purchase date must be in {DATE_FORMAT} format.")
+        return redirect(url_for("split_box_wizard"))
+    if not purchase_source:
+        flash("Purchase source is required.")
+        return redirect(url_for("split_box_wizard"))
+    if total_cost is None or total_cost <= 0:
+        flash("Total box cost must be greater than 0.")
+        return redirect(url_for("split_box_wizard"))
+
+    selected_ids = [int(v) for v in request.form.getlist("item_ids") if v.isdigit()]
+    created_item_ids: list[int] = []
+
+    with get_db() as conn:
+        ensure_purchase_source(conn, purchase_source)
+        lot_cursor = conn.execute(
+            """
+            INSERT INTO lots (reference, purchase_date, purchase_source, total_cost, notes)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (reference, purchase_date, purchase_source, float(total_cost), notes),
+        )
+        lot_id = lot_cursor.lastrowid
+
+        if item_mode == "create":
+            item_name = request.form.get("item_name", "").strip()
+            quantity_raw = request.form.get("quantity", "").strip()
+            status = request.form.get("status", "Unlisted")
+            item_notes = request.form.get("item_notes", "").strip() or None
+            if not item_name:
+                flash("Item name is required when creating items from the box.")
+                conn.execute("DELETE FROM lots WHERE id = ?", (lot_id,))
+                return redirect(url_for("split_box_wizard"))
+            try:
+                quantity = int(quantity_raw)
+            except ValueError:
+                quantity = 0
+            if quantity < 1 or quantity > 200:
+                flash("Quantity must be between 1 and 200.")
+                conn.execute("DELETE FROM lots WHERE id = ?", (lot_id,))
+                return redirect(url_for("split_box_wizard"))
+            if status not in STATUSES:
+                status = "Unlisted"
+            allocations = split_amount_evenly(total_cost, quantity)
+            for allocation in allocations:
+                cursor = conn.execute(
+                    """
+                    INSERT INTO items
+                        (name, sku, description, purchase_price, purchase_date, purchase_source, status, listed_date, notes, lot_id)
+                    VALUES
+                        (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        item_name,
+                        None,
+                        None,
+                        float(allocation),
+                        purchase_date,
+                        purchase_source,
+                        status,
+                        None,
+                        item_notes,
+                        lot_id,
+                    ),
+                )
+                created_item_ids.append(cursor.lastrowid)
+        else:
+            if not selected_ids:
+                flash("Select at least one existing item to allocate this box.")
+                conn.execute("DELETE FROM lots WHERE id = ?", (lot_id,))
+                return redirect(url_for("split_box_wizard"))
+            allocations = split_amount_evenly(total_cost, len(selected_ids))
+            for item_id, allocation in zip(selected_ids, allocations):
+                conn.execute(
+                    """
+                    UPDATE items
+                    SET lot_id = ?, purchase_price = ?, purchase_date = ?, purchase_source = ?
+                    WHERE id = ? AND lot_id IS NULL
+                    """,
+                    (lot_id, float(allocation), purchase_date, purchase_source, item_id),
+                )
+
+    flash("Split box saved and costs allocated.")
+    return redirect(url_for("lot_detail", lot_id=lot_id))
+
+
+@app.route("/lots/<int:lot_id>")
+def lot_detail(lot_id: int) -> str | Response:
+    lot = fetch_lot(lot_id)
+    if lot is None:
+        flash("Box not found.")
+        return redirect(url_for("lots"))
+    items = fetch_lot_items(lot_id)
+    return render_template("lot_detail.html", lot=lot, items=items)
 
 
 @app.route("/item/new", methods=["POST"])
