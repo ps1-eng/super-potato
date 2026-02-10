@@ -384,3 +384,19 @@ td:first-child {
   border-radius: 12px;
 }
 
+
+.actions-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.actions-inline form {
+  margin: 0;
+}
+
+.button.danger,
+button.danger {
+  background: #dc2626;
+}

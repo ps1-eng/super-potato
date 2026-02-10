@@ -1448,6 +1448,21 @@ def edit_listing(listing_id: int) -> str | Response:
     return redirect(url_for("item_detail", item_id=listing["item_id"]))
 
 
+@app.route("/lots/<int:lot_id>/delete", methods=["POST"])
+def lot_delete(lot_id: int) -> Response:
+    lot = fetch_lot(lot_id)
+    if lot is None:
+        flash("Box not found.")
+        return redirect(url_for("lots"))
+
+    with get_db() as conn:
+        conn.execute("DELETE FROM items WHERE lot_id = ?", (lot_id,))
+        conn.execute("DELETE FROM lots WHERE id = ?", (lot_id,))
+
+    flash("Box and its items were deleted.")
+    return redirect(url_for("lots"))
+
+
 @app.route("/item/<int:item_id>/delete", methods=["POST"])
 def delete_item(item_id: int) -> Response:
     item = fetch_item(item_id)
