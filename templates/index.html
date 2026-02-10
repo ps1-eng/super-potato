@@ -56,8 +56,15 @@
         name="listed_date"
         class="date-input"
         placeholder="26/03/2024"
-        value="{{ '' | today_input }}"
       />
+    </label>
+    <label class="span-2">
+      <input type="checkbox" id="add-multiple-toggle" name="add_multiple" />
+      Add multiple of this same item
+    </label>
+    <label id="quantity-label" style="display: none;">
+      Quantity
+      <input type="number" name="quantity" min="2" step="1" value="2" />
     </label>
     <label class="span-2">
       Notes (optional)
@@ -148,6 +155,7 @@
               <strong>{{ item.name }}</strong>
               <div class="muted">{{ item.purchase_date }} · {{ item.purchase_source }}</div>
               <a href="{{ url_for('item_detail', item_id=item.id) }}">View</a>
+              <a href="{{ url_for('edit_item', item_id=item.id) }}">Edit</a>
             </td>
             <td><span class="pill {{ item.status|lower }}">{{ item.status }}</span></td>
             <td>{{ item.purchase_price | currency }}</td>
@@ -228,4 +236,21 @@
     </div>
   </div>
 </section>
+<script>
+  const multipleToggle = document.getElementById("add-multiple-toggle");
+  const quantityLabel = document.getElementById("quantity-label");
+  if (multipleToggle && quantityLabel) {
+    const quantityInput = quantityLabel.querySelector("input[name='quantity']");
+    const syncQuantityVisibility = () => {
+      const enabled = multipleToggle.checked;
+      quantityLabel.style.display = enabled ? "block" : "none";
+      if (quantityInput) {
+        quantityInput.disabled = !enabled;
+      }
+    };
+    syncQuantityVisibility();
+    multipleToggle.addEventListener("change", syncQuantityVisibility);
+  }
+</script>
+
 {% endblock %}
