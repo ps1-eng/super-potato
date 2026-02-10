@@ -83,6 +83,7 @@
         <li>Purchase price: {{ item.purchase_price | currency }}</li>
         <li>Purchase date: {{ item.purchase_date }}</li>
         <li>Purchase source: {{ item.purchase_source }}</li>
+        <li>Box: {% if item.lot_id %}<a href="{{ url_for('lot_detail', lot_id=item.lot_id) }}">{{ item.lot_reference }}</a>{% else %}–{% endif %}</li>
         <li>Description: {{ item.description or '–' }}</li>
         <li>Notes: {{ item.notes or '–' }}</li>
       </ul>

@@ -377,3 +377,9 @@ td:first-child {
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   }
 }
+
+.nested-grid {
+  padding: 1rem;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+}
