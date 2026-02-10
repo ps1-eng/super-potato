@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="card">
+  <div class="item-header">
+    <div>
+      <h2>{{ lot.reference }}</h2>
+      <p class="muted">Purchased {{ lot.purchase_date }} from {{ lot.purchase_source }}</p>
+    </div>
+    <a class="link" href="{{ url_for('lots') }}">Back to boxes</a>
+  </div>
+
+  <div class="detail-grid">
+    <div>
+      <h3>Box summary</h3>
+      <ul>
+        <li>Total cost: {{ lot.total_cost | currency }}</li>
+        <li>Allocated: {{ lot.allocated_cost | currency }}</li>
+        <li>Remaining: {{ (lot.total_cost - lot.allocated_cost) | currency }}</li>
+        <li>Items linked: {{ lot.item_count }}</li>
+        <li>Notes: {{ lot.notes or '–' }}</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Items in this box</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Status</th>
+          <th>Allocated cost</th>
+          <th>Sale</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+          <tr>
+            <td>
+              <a href="{{ url_for('item_detail', item_id=item.id) }}">{{ item.name }}</a>
+              <div class="muted">{{ item.purchase_date }} · {{ item.purchase_source }}</div>
+            </td>
+            <td>{{ item.status }}</td>
+            <td>{{ item.purchase_price | currency }}</td>
+            <td>{{ item.sale_price | currency }}</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="4" class="empty">No items linked yet.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

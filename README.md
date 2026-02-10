@@ -112,6 +112,15 @@ Optional columns:
 This is ready for a small online deployment (e.g., Render, Fly.io, or Railway).
 When you pick a host, I’ll add the exact deployment config.
 
+## Split box wizard
+Use **Boxes** -> **Split new box** to create a box/lot purchase and split the total cost evenly across items.
+
+Wizard supports two modes:
+- Create a batch of new items and auto-allocate cost.
+- Select existing unassigned items and re-allocate cost evenly.
+
+Each lot keeps a running summary of total cost, allocated cost, and remaining cost.
+
 ## Purchase source cleanup
 To normalize existing `purchase_source` values (e.g., casing or naming variants), run:
 
