@@ -913,6 +913,80 @@ def quick_update_item(item_id: int) -> Response:
     return redirect(url_for("index"))
 
 
+@app.route("/item/<int:item_id>/edit", methods=["GET", "POST"])
+def edit_item(item_id: int) -> str | Response:
+    item = fetch_item(item_id)
+    if item is None:
+        flash("Item not found.")
+        return redirect(url_for("index"))
+
+    if request.method == "GET":
+        return render_template(
+            "item_edit.html",
+            item=item,
+            purchase_sources=fetch_purchase_sources(),
+            statuses=STATUSES,
+            date_format=DATE_FORMAT,
+        )
+
+    name = request.form.get("name", "").strip()
+    sku = request.form.get("sku", "").strip() or None
+    description = request.form.get("description", "").strip() or None
+    purchase_price = parse_decimal(request.form.get("purchase_price", ""))
+    purchase_date_raw = request.form.get("purchase_date", "").strip()
+    purchase_date = parse_date(purchase_date_raw) if purchase_date_raw else None
+    purchase_source = normalize_purchase_source(request.form.get("purchase_source", "").strip())
+    status = request.form.get("status", "Unlisted")
+    listed_date_raw = request.form.get("listed_date", "").strip()
+    listed_date = parse_date(listed_date_raw) if listed_date_raw else None
+    notes = request.form.get("notes", "").strip() or None
+
+    if not name:
+        flash("Item name is required.")
+        return redirect(url_for("edit_item", item_id=item_id))
+    if purchase_price is None:
+        flash("Purchase price must be a number.")
+        return redirect(url_for("edit_item", item_id=item_id))
+    if purchase_date is None:
+        flash(f"Purchase date must be in {DATE_FORMAT} format.")
+        return redirect(url_for("edit_item", item_id=item_id))
+    if not purchase_source:
+        flash("Purchase source is required.")
+        return redirect(url_for("edit_item", item_id=item_id))
+    if status not in STATUSES:
+        flash("Invalid status.")
+        return redirect(url_for("edit_item", item_id=item_id))
+    if listed_date_raw and listed_date is None:
+        flash(f"Listed date must be in {DATE_FORMAT} format.")
+        return redirect(url_for("edit_item", item_id=item_id))
+
+    with get_db() as conn:
+        ensure_purchase_source(conn, purchase_source)
+        conn.execute(
+            """
+            UPDATE items
+            SET name = ?, sku = ?, description = ?, purchase_price = ?, purchase_date = ?,
+                purchase_source = ?, status = ?, listed_date = ?, notes = ?
+            WHERE id = ?
+            """,
+            (
+                name,
+                sku,
+                description,
+                float(purchase_price),
+                purchase_date,
+                purchase_source,
+                status,
+                listed_date,
+                notes,
+                item_id,
+            ),
+        )
+
+    flash("Item updated.")
+    return redirect(url_for("item_detail", item_id=item_id))
+
+
 @app.route("/item/<int:item_id>/open-listings")
 def open_listings(item_id: int) -> str:
     item = fetch_item(item_id)
