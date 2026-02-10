@@ -2,7 +2,7 @@
 
 {% block content %}
 <section class="card">
-  <h2>Add item</h2>
+  <div class="item-header"><h2>Add item</h2><a class="button" href="{{ url_for('split_box_wizard') }}">Split box wizard</a></div>
   <form class="grid" method="post" action="{{ url_for('add_item') }}">
     <label>
       Item name
@@ -70,7 +70,10 @@
       Notes (optional)
       <textarea name="notes" rows="2"></textarea>
     </label>
-    <button type="submit" class="primary">Save item</button>
+    <div class="form-actions">
+      <button type="submit" class="primary">Save item</button>
+      <a class="button" href="{{ url_for('split_box_wizard') }}">Split box wizard</a>
+    </div>
   </form>
   <datalist id="purchase-sources">
     {% for source in purchase_sources %}
