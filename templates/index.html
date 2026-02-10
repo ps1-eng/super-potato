@@ -2,7 +2,7 @@
 
 {% block content %}
 <section class="card">
-  <h2>Add item</h2>
+  <div class="item-header"><h2>Add item</h2><a class="button" href="{{ url_for('split_box_wizard') }}">Split box wizard</a></div>
   <form class="grid" method="post" action="{{ url_for('add_item') }}">
     <label>
       Item name
@@ -154,6 +154,7 @@
             <td>
               <strong>{{ item.name }}</strong>
               <div class="muted">{{ item.purchase_date }} · {{ item.purchase_source }}</div>
+              {% if item.lot_reference %}<div class="muted">Box: {{ item.lot_reference }}</div>{% endif %}
               <a href="{{ url_for('item_detail', item_id=item.id) }}">View</a>
               <a href="{{ url_for('edit_item', item_id=item.id) }}">Edit</a>
             </td>
