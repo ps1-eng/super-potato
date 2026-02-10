@@ -4,7 +4,7 @@
 <section class="card">
   <div class="item-header">
     <h2>Boxes / Lots</h2>
-    <a class="button" href="{{ url_for('split_box_wizard') }}">Split box wizard</a>
+    <a class="button" href="{{ url_for('split_box_wizard') }}">Create box</a>
   </div>
 
   <div class="table-wrap">
@@ -17,6 +17,7 @@
           <th>Allocated</th>
           <th>Remaining</th>
           <th>Items</th>
+          <th>Status</th>
         </tr>
       </thead>
       <tbody>
@@ -28,10 +29,11 @@
             <td>{{ lot.allocated_cost | currency }}</td>
             <td>{{ (lot.total_cost - lot.allocated_cost) | currency }}</td>
             <td>{{ lot.item_count }}</td>
+            <td>{% if lot.is_finalized %}Finalised{% else %}Open{% endif %}</td>
           </tr>
         {% else %}
           <tr>
-            <td colspan="6" class="empty">No boxes yet.</td>
+            <td colspan="7" class="empty">No boxes yet.</td>
           </tr>
         {% endfor %}
       </tbody>
