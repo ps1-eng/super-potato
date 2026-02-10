@@ -4,6 +4,7 @@ import csv
 import io
 import os
 import sqlite3
+import zipfile
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -732,6 +733,34 @@ def settings() -> str:
     return render_template(
         "settings.html",
         purchase_sources=fetch_purchase_source_usage(),
+    )
+
+
+@app.route("/settings/backup")
+def settings_backup() -> Response:
+    backup_name = f"super-potato-backup-{datetime.now().strftime('%Y%m%d-%H%M%S')}.zip"
+    memory_file = io.BytesIO()
+
+    with zipfile.ZipFile(memory_file, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.write(DB_PATH, arcname=f"backup/{DB_PATH.name}")
+        archive.write(APP_DIR / "app.py", arcname="backup/app.py")
+        archive.write(APP_DIR / "requirements.txt", arcname="backup/requirements.txt")
+        archive.write(APP_DIR / "README.md", arcname="backup/README.md")
+
+        for template_file in sorted((APP_DIR / "templates").glob("*.html")):
+            archive.write(template_file, arcname=f"backup/templates/{template_file.name}")
+
+        for static_file in sorted((APP_DIR / "static").iterdir()):
+            if static_file.is_file():
+                archive.write(static_file, arcname=f"backup/static/{static_file.name}")
+
+    memory_file.seek(0)
+    return Response(
+        memory_file.getvalue(),
+        mimetype="application/zip",
+        headers={
+            "Content-Disposition": f"attachment; filename={backup_name}",
+        },
     )
 
 
