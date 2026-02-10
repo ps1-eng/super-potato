@@ -59,6 +59,14 @@
       />
     </label>
     <label class="span-2">
+      <input type="checkbox" id="add-multiple-toggle" name="add_multiple" />
+      Add multiple of this same item
+    </label>
+    <label id="quantity-label" style="display: none;">
+      Quantity
+      <input type="number" name="quantity" min="2" step="1" value="2" />
+    </label>
+    <label class="span-2">
       Notes (optional)
       <textarea name="notes" rows="2"></textarea>
     </label>
@@ -228,4 +236,21 @@
     </div>
   </div>
 </section>
+<script>
+  const multipleToggle = document.getElementById("add-multiple-toggle");
+  const quantityLabel = document.getElementById("quantity-label");
+  if (multipleToggle && quantityLabel) {
+    const quantityInput = quantityLabel.querySelector("input[name='quantity']");
+    const syncQuantityVisibility = () => {
+      const enabled = multipleToggle.checked;
+      quantityLabel.style.display = enabled ? "block" : "none";
+      if (quantityInput) {
+        quantityInput.disabled = !enabled;
+      }
+    };
+    syncQuantityVisibility();
+    multipleToggle.addEventListener("change", syncQuantityVisibility);
+  }
+</script>
+
 {% endblock %}

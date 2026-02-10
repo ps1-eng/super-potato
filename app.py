@@ -623,6 +623,8 @@ def add_item() -> Response:
     status = request.form.get("status", "Unlisted")
     listed_date = parse_date(request.form.get("listed_date", ""))
     notes = request.form.get("notes", "").strip() or None
+    add_multiple = request.form.get("add_multiple") == "on"
+    quantity_raw = request.form.get("quantity", "1").strip()
 
     if not name:
         flash("Item name is required.")
@@ -643,28 +645,60 @@ def add_item() -> Response:
         flash(f"Listed date must be in {DATE_FORMAT} format.")
         return redirect(url_for("index"))
 
+    quantity = 1
+    if add_multiple:
+        try:
+            quantity = int(quantity_raw)
+        except ValueError:
+            flash("Quantity must be a whole number.")
+            return redirect(url_for("index"))
+        if quantity < 2:
+            flash("Quantity must be at least 2 when adding multiple items.")
+            return redirect(url_for("index"))
+        if quantity > 200:
+            flash("Quantity is too large. Please use 200 or less.")
+            return redirect(url_for("index"))
+
+    sku = request.form.get("sku", "").strip() or None
+    row = (
+        name,
+        sku,
+        description,
+        float(purchase_price),
+        purchase_date,
+        purchase_source,
+        status,
+        listed_date,
+        notes,
+    )
+
     with get_db() as conn:
         ensure_purchase_source(conn, purchase_source)
-        conn.execute(
-            """
-            INSERT INTO items
-                (name, sku, description, purchase_price, purchase_date, purchase_source, status, listed_date, notes)
-            VALUES
-                (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                name,
-                request.form.get("sku", "").strip() or None,
-                description,
-                float(purchase_price),
-                purchase_date,
-                purchase_source,
-                status,
-                listed_date,
-                notes,
-            ),
-        )
-    flash("Item added.")
+        if quantity == 1:
+            conn.execute(
+                """
+                INSERT INTO items
+                    (name, sku, description, purchase_price, purchase_date, purchase_source, status, listed_date, notes)
+                VALUES
+                    (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                row,
+            )
+        else:
+            conn.executemany(
+                """
+                INSERT INTO items
+                    (name, sku, description, purchase_price, purchase_date, purchase_source, status, listed_date, notes)
+                VALUES
+                    (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [row] * quantity,
+            )
+
+    if quantity == 1:
+        flash("Item added.")
+    else:
+        flash(f"{quantity} items added.")
     return redirect(url_for("index"))
 
 
