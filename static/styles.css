@@ -384,9 +384,3 @@ td:first-child {
   border-radius: 12px;
 }
 
-.form-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
