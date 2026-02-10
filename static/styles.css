@@ -400,3 +400,18 @@ td:first-child {
 button.danger {
   background: #dc2626;
 }
+
+.settings-summary {
+  cursor: pointer;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.settings-details-content {
+  margin-top: 1rem;
+}
+
+.card details summary::-webkit-details-marker {
+  color: var(--primary);
+}
