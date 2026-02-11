@@ -607,16 +607,31 @@ def fetch_listing_health_rows(limit: int | None = None) -> list[sqlite3.Row]:
         return conn.execute(query, params).fetchall()
 
 
-def add_scan_log(level: str, message: str, listing_id: int | None = None) -> None:
+def add_scan_log(
+    level: str,
+    message: str,
+    listing_id: int | None = None,
+    conn: sqlite3.Connection | None = None,
+) -> None:
     created_at = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-    with get_db() as conn:
-        conn.execute(
-            """
-            INSERT INTO listing_scan_logs (created_at, level, message, listing_id)
-            VALUES (?, ?, ?, ?)
-            """,
-            (created_at, level, message, listing_id),
-        )
+    if conn is None:
+        with get_db() as db_conn:
+            db_conn.execute(
+                """
+                INSERT INTO listing_scan_logs (created_at, level, message, listing_id)
+                VALUES (?, ?, ?, ?)
+                """,
+                (created_at, level, message, listing_id),
+            )
+        return
+
+    conn.execute(
+        """
+        INSERT INTO listing_scan_logs (created_at, level, message, listing_id)
+        VALUES (?, ?, ?, ?)
+        """,
+        (created_at, level, message, listing_id),
+    )
 
 
 def fetch_scan_logs(limit: int = 150) -> list[sqlite3.Row]:
@@ -924,10 +939,19 @@ def scan_listing_health() -> Response:
 
     checked_at = datetime.now().strftime("%d/%m/%Y %H:%M")
     updated = 0
-    add_scan_log("info", f"Starting listing health scan for first {len(listings)} listings.")
+
+    scan_results: list[tuple[sqlite3.Row, str, str, int | None]] = []
+    for listing in listings:
+        status, detail, http_code = scan_listing(listing)
+        scan_results.append((listing, status, detail, http_code))
+
     with get_db() as conn:
-        for listing in listings:
-            status, detail, http_code = scan_listing(listing)
+        add_scan_log(
+            "info",
+            f"Starting listing health scan for first {len(listings)} listings.",
+            conn=conn,
+        )
+        for listing, status, detail, http_code in scan_results:
             conn.execute(
                 """
                 UPDATE listings
@@ -943,9 +967,11 @@ def scan_listing_health() -> Response:
                 "info",
                 f"Listing #{listing['id']} ({listing['marketplace']}) => {status}. {detail}",
                 listing_id=listing["id"],
+                conn=conn,
             )
             updated += 1
-    add_scan_log("info", f"Scan complete. Updated {updated} listings.")
+        add_scan_log("info", f"Scan complete. Updated {updated} listings.", conn=conn)
+
     flash(f"Scanned {updated} listings (limited to first {LISTING_SCAN_LIMIT}).")
     return redirect(url_for("tools"))
 
