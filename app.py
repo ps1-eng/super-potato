@@ -9,6 +9,8 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Iterable
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 from flask import Flask, Response, flash, redirect, render_template, request, url_for
 
@@ -191,6 +193,10 @@ def init_db() -> None:
         ensure_column(conn, "items", "listed_date", "TEXT")
         ensure_column(conn, "items", "lot_id", "INTEGER")
         ensure_column(conn, "lots", "is_finalized", "INTEGER NOT NULL DEFAULT 0")
+        ensure_column(conn, "listings", "last_checked_at", "TEXT")
+        ensure_column(conn, "listings", "last_status", "TEXT")
+        ensure_column(conn, "listings", "last_status_detail", "TEXT")
+        ensure_column(conn, "listings", "last_http_code", "INTEGER")
         conn.executemany(
             "INSERT OR IGNORE INTO purchase_sources (name) VALUES (?)",
             [(source,) for source in PURCHASE_SOURCE_OPTIONS],
@@ -567,6 +573,81 @@ def fetch_listing(listing_id: int) -> sqlite3.Row | None:
         return conn.execute("SELECT * FROM listings WHERE id = ?", (listing_id,)).fetchone()
 
 
+def fetch_listing_health_rows() -> list[sqlite3.Row]:
+    with get_db() as conn:
+        return conn.execute(
+            """
+            SELECT
+                listings.*, 
+                items.name AS item_name,
+                items.status AS item_status,
+                items.id AS item_id,
+                items.sku AS item_sku
+            FROM listings
+            JOIN items ON items.id = listings.item_id
+            WHERE listings.marketplace IN ('eBay', 'Adverts.ie')
+            ORDER BY listings.id DESC
+            """
+        ).fetchall()
+
+
+def detect_listing_status(marketplace: str, html: str, http_code: int | None) -> tuple[str, str]:
+    page = html.lower()
+    ended_phrases_by_marketplace = {
+        "eBay": [
+            "this listing was ended",
+            "this listing has ended",
+            "this listing has been removed",
+            "the item you selected is unavailable",
+            "we looked everywhere",
+            "page not found",
+        ],
+        "Adverts.ie": [
+            "ad no longer available",
+            "this ad is no longer available",
+            "this listing is no longer available",
+            "ad removed",
+            "page not found",
+        ],
+    }
+    ended_phrases = ended_phrases_by_marketplace.get(marketplace, ["page not found", "not found"])
+    for phrase in ended_phrases:
+        if phrase in page:
+            return ("not_live", f"Matched page text: '{phrase}'.")
+
+    if http_code in {404, 410}:
+        return ("not_live", f"HTTP status {http_code} indicates listing is unavailable.")
+
+    if http_code and 200 <= http_code < 400:
+        return ("live", "Page loaded and no end-of-listing markers were detected.")
+
+    return ("unknown", "Could not confidently determine listing status from the response.")
+
+
+def scan_listing(listing_row: sqlite3.Row) -> tuple[str, str, int | None]:
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        )
+    }
+    request = Request(listing_row["listing_url"], headers=headers)
+    try:
+        with urlopen(request, timeout=12) as response:  # nosec B310
+            code = response.getcode()
+            content = response.read().decode("utf-8", errors="ignore")
+            status, detail = detect_listing_status(listing_row["marketplace"], content, code)
+            return status, detail, code
+    except HTTPError as exc:
+        content = exc.read().decode("utf-8", errors="ignore")
+        status, detail = detect_listing_status(listing_row["marketplace"], content, exc.code)
+        return status, detail, exc.code
+    except URLError as exc:
+        return "error", f"Network error while checking URL: {exc.reason}", None
+    except ValueError:
+        return "error", "Invalid listing URL.", None
+
+
 def fetch_sku_options() -> list[str]:
     with get_db() as conn:
         rows = conn.execute(
@@ -762,6 +843,53 @@ def settings_backup() -> Response:
             "Content-Disposition": f"attachment; filename={backup_name}",
         },
     )
+
+
+@app.route("/tools")
+def tools() -> str:
+    listings = fetch_listing_health_rows()
+    totals = {
+        "all": len(listings),
+        "live": 0,
+        "not_live": 0,
+        "unknown": 0,
+        "error": 0,
+        "unchecked": 0,
+    }
+    for listing in listings:
+        status = listing["last_status"] or "unchecked"
+        if status not in totals:
+            status = "unknown"
+        totals[status] += 1
+    return render_template("tools.html", listings=listings, totals=totals)
+
+
+@app.route("/tools/listing-health/scan", methods=["POST"])
+def scan_listing_health() -> Response:
+    listings = fetch_listing_health_rows()
+    if not listings:
+        flash("No eBay or Adverts.ie listings found to scan.")
+        return redirect(url_for("tools"))
+
+    checked_at = datetime.now().strftime("%d/%m/%Y %H:%M")
+    updated = 0
+    with get_db() as conn:
+        for listing in listings:
+            status, detail, http_code = scan_listing(listing)
+            conn.execute(
+                """
+                UPDATE listings
+                SET last_checked_at = ?,
+                    last_status = ?,
+                    last_status_detail = ?,
+                    last_http_code = ?
+                WHERE id = ?
+                """,
+                (checked_at, status, detail, http_code, listing["id"]),
+            )
+            updated += 1
+    flash(f"Scanned {updated} listings. Review statuses in Tools.")
+    return redirect(url_for("tools"))
 
 
 @app.route("/lots")
