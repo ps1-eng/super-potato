@@ -9,6 +9,8 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Iterable
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 from flask import Flask, Response, flash, redirect, render_template, request, url_for
 
@@ -17,6 +19,7 @@ DB_PATH = Path(os.environ.get("RESALE_DB_PATH", APP_DIR / "data" / "resale.db"))
 MARKETPLACES = ["eBay", "Vinted", "Adverts.ie"]
 STATUSES = ["Unlisted", "Listed", "Sold"]
 DATE_FORMAT = "%d/%m/%Y"
+LISTING_SCAN_LIMIT = 20
 PURCHASE_SOURCE_OPTIONS = [
     "Adverts",
     "Ark - Bray",
@@ -188,9 +191,25 @@ def init_db() -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS listing_scan_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT NOT NULL,
+                level TEXT NOT NULL,
+                message TEXT NOT NULL,
+                listing_id INTEGER,
+                FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE SET NULL
+            )
+            """
+        )
         ensure_column(conn, "items", "listed_date", "TEXT")
         ensure_column(conn, "items", "lot_id", "INTEGER")
         ensure_column(conn, "lots", "is_finalized", "INTEGER NOT NULL DEFAULT 0")
+        ensure_column(conn, "listings", "last_checked_at", "TEXT")
+        ensure_column(conn, "listings", "last_status", "TEXT")
+        ensure_column(conn, "listings", "last_status_detail", "TEXT")
+        ensure_column(conn, "listings", "last_http_code", "INTEGER")
         conn.executemany(
             "INSERT OR IGNORE INTO purchase_sources (name) VALUES (?)",
             [(source,) for source in PURCHASE_SOURCE_OPTIONS],
@@ -567,6 +586,126 @@ def fetch_listing(listing_id: int) -> sqlite3.Row | None:
         return conn.execute("SELECT * FROM listings WHERE id = ?", (listing_id,)).fetchone()
 
 
+def fetch_listing_health_rows(limit: int | None = None) -> list[sqlite3.Row]:
+    query = """
+        SELECT
+            listings.*,
+            items.name AS item_name,
+            items.status AS item_status,
+            items.id AS item_id,
+            items.sku AS item_sku
+        FROM listings
+        JOIN items ON items.id = listings.item_id
+        WHERE listings.marketplace IN ('eBay', 'Adverts.ie')
+        ORDER BY listings.id DESC
+    """
+    params: list[str] = []
+    if limit is not None:
+        query += " LIMIT ?"
+        params.append(str(limit))
+    with get_db() as conn:
+        return conn.execute(query, params).fetchall()
+
+
+def add_scan_log(
+    level: str,
+    message: str,
+    listing_id: int | None = None,
+    conn: sqlite3.Connection | None = None,
+) -> None:
+    created_at = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    if conn is None:
+        with get_db() as db_conn:
+            db_conn.execute(
+                """
+                INSERT INTO listing_scan_logs (created_at, level, message, listing_id)
+                VALUES (?, ?, ?, ?)
+                """,
+                (created_at, level, message, listing_id),
+            )
+        return
+
+    conn.execute(
+        """
+        INSERT INTO listing_scan_logs (created_at, level, message, listing_id)
+        VALUES (?, ?, ?, ?)
+        """,
+        (created_at, level, message, listing_id),
+    )
+
+
+def fetch_scan_logs(limit: int = 150) -> list[sqlite3.Row]:
+    with get_db() as conn:
+        return conn.execute(
+            """
+            SELECT logs.*, listings.marketplace, listings.listing_url, items.name AS item_name
+            FROM listing_scan_logs AS logs
+            LEFT JOIN listings ON listings.id = logs.listing_id
+            LEFT JOIN items ON items.id = listings.item_id
+            ORDER BY logs.id DESC
+            LIMIT ?
+            """,
+            (str(limit),),
+        ).fetchall()
+
+
+def detect_listing_status(marketplace: str, html: str, http_code: int | None) -> tuple[str, str]:
+    page = html.lower()
+    ended_phrases_by_marketplace = {
+        "eBay": [
+            "this listing was ended",
+            "this listing has ended",
+            "this listing has been removed",
+            "the item you selected is unavailable",
+            "we looked everywhere",
+            "page not found",
+        ],
+        "Adverts.ie": [
+            "ad no longer available",
+            "this ad is no longer available",
+            "this listing is no longer available",
+            "ad removed",
+            "page not found",
+        ],
+    }
+    ended_phrases = ended_phrases_by_marketplace.get(marketplace, ["page not found", "not found"])
+    for phrase in ended_phrases:
+        if phrase in page:
+            return ("not_live", f"Matched page text: '{phrase}'.")
+
+    if http_code in {404, 410}:
+        return ("not_live", f"HTTP status {http_code} indicates listing is unavailable.")
+
+    if http_code and 200 <= http_code < 400:
+        return ("live", "Page loaded and no end-of-listing markers were detected.")
+
+    return ("unknown", "Could not confidently determine listing status from the response.")
+
+
+def scan_listing(listing_row: sqlite3.Row) -> tuple[str, str, int | None]:
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        )
+    }
+    request = Request(listing_row["listing_url"], headers=headers)
+    try:
+        with urlopen(request, timeout=12) as response:  # nosec B310
+            code = response.getcode()
+            content = response.read().decode("utf-8", errors="ignore")
+            status, detail = detect_listing_status(listing_row["marketplace"], content, code)
+            return status, detail, code
+    except HTTPError as exc:
+        content = exc.read().decode("utf-8", errors="ignore")
+        status, detail = detect_listing_status(listing_row["marketplace"], content, exc.code)
+        return status, detail, exc.code
+    except URLError as exc:
+        return "error", f"Network error while checking URL: {exc.reason}", None
+    except ValueError:
+        return "error", "Invalid listing URL.", None
+
+
 def fetch_sku_options() -> list[str]:
     with get_db() as conn:
         rows = conn.execute(
@@ -762,6 +901,79 @@ def settings_backup() -> Response:
             "Content-Disposition": f"attachment; filename={backup_name}",
         },
     )
+
+
+@app.route("/tools")
+def tools() -> str:
+    listings = fetch_listing_health_rows()
+    logs = fetch_scan_logs()
+    totals = {
+        "all": len(listings),
+        "live": 0,
+        "not_live": 0,
+        "unknown": 0,
+        "error": 0,
+        "unchecked": 0,
+    }
+    for listing in listings:
+        status = listing["last_status"] or "unchecked"
+        if status not in totals:
+            status = "unknown"
+        totals[status] += 1
+    return render_template(
+        "tools.html",
+        listings=listings,
+        logs=logs,
+        totals=totals,
+        scan_limit=LISTING_SCAN_LIMIT,
+    )
+
+
+@app.route("/tools/listing-health/scan", methods=["POST"])
+def scan_listing_health() -> Response:
+    listings = fetch_listing_health_rows(limit=LISTING_SCAN_LIMIT)
+    if not listings:
+        add_scan_log("warning", "Scan skipped: no eBay or Adverts.ie listings found.")
+        flash("No eBay or Adverts.ie listings found to scan.")
+        return redirect(url_for("tools"))
+
+    checked_at = datetime.now().strftime("%d/%m/%Y %H:%M")
+    updated = 0
+
+    scan_results: list[tuple[sqlite3.Row, str, str, int | None]] = []
+    for listing in listings:
+        status, detail, http_code = scan_listing(listing)
+        scan_results.append((listing, status, detail, http_code))
+
+    with get_db() as conn:
+        add_scan_log(
+            "info",
+            f"Starting listing health scan for first {len(listings)} listings.",
+            conn=conn,
+        )
+        for listing, status, detail, http_code in scan_results:
+            conn.execute(
+                """
+                UPDATE listings
+                SET last_checked_at = ?,
+                    last_status = ?,
+                    last_status_detail = ?,
+                    last_http_code = ?
+                WHERE id = ?
+                """,
+                (checked_at, status, detail, http_code, listing["id"]),
+            )
+            add_scan_log(
+                "info",
+                f"Listing #{listing['id']} ({listing['marketplace']}) => {status}. {detail}",
+                listing_id=listing["id"],
+                conn=conn,
+            )
+            updated += 1
+        add_scan_log("info", f"Scan complete. Updated {updated} listings.", conn=conn)
+
+    flash(f"Scanned {updated} listings (limited to first {LISTING_SCAN_LIMIT}).")
+    return redirect(url_for("tools"))
 
 
 @app.route("/lots")
