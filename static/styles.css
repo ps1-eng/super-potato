@@ -415,3 +415,72 @@ button.danger {
 .card details summary::-webkit-details-marker {
   color: var(--primary);
 }
+
+.tools-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.tools-summary-grid {
+  margin: 1rem 0 1.25rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+}
+
+.tools-summary-grid > div {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.7rem;
+  background: #fafafa;
+}
+
+.tools-summary-grid strong {
+  display: block;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.tools-summary-grid span {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.pill.listing-status-live {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.pill.listing-status-not-live {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.pill.listing-status-unknown,
+.pill.listing-status-unchecked {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.pill.listing-status-error {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.pill.log-level-info {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.pill.log-level-warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.pill.log-level-error {
+  background: #fee2e2;
+  color: #991b1b;
+}
