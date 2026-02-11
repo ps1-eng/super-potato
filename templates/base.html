@@ -11,8 +11,10 @@
   <header class="site-header">
     <div class="container header-content">
       <div>
-        <h1>Resale Tracker</h1>
-        <p class="subtitle">Track inventory, listings, and profit in one place.</p>
+        <a href="{{ url_for('index') }}" class="brand-link">
+          <h1>Resale Tracker</h1>
+          <p class="subtitle">Track inventory, listings, and profit in one place.</p>
+        </a>
       </div>
       <nav>
         <a href="{{ url_for('index') }}">Items</a>
