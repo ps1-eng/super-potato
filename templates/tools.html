@@ -11,6 +11,7 @@
     <div>
       <h3>Listing health scan (Phase 1)</h3>
       <p class="muted">Checks eBay and Adverts.ie listing URLs and flags listings that may no longer be live.</p>
+      <p class="muted"><strong>Test mode:</strong> each run scans only the first {{ scan_limit }} listings.</p>
     </div>
     <form method="post" action="{{ url_for('scan_listing_health') }}">
       <button type="submit" class="primary">Scan now</button>
@@ -63,6 +64,46 @@
         {% else %}
           <tr>
             <td colspan="7" class="empty">No eBay or Adverts.ie listings available to scan yet.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Scan log</h3>
+  <p class="muted">Shows what happened during recent scan runs.</p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Level</th>
+          <th>Item / Listing</th>
+          <th>Message</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+          <tr>
+            <td>{{ log.created_at }}</td>
+            <td><span class="pill log-level-{{ log.level }}">{{ log.level }}</span></td>
+            <td>
+              {% if log.item_name %}
+                <strong>{{ log.item_name }}</strong><br />
+              {% endif %}
+              {% if log.marketplace %}
+                {{ log.marketplace }}
+              {% else %}
+                –
+              {% endif %}
+            </td>
+            <td>{{ log.message }}</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="4" class="empty">No scan logs yet.</td>
           </tr>
         {% endfor %}
       </tbody>

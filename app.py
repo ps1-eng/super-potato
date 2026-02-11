@@ -19,6 +19,7 @@ DB_PATH = Path(os.environ.get("RESALE_DB_PATH", APP_DIR / "data" / "resale.db"))
 MARKETPLACES = ["eBay", "Vinted", "Adverts.ie"]
 STATUSES = ["Unlisted", "Listed", "Sold"]
 DATE_FORMAT = "%d/%m/%Y"
+LISTING_SCAN_LIMIT = 20
 PURCHASE_SOURCE_OPTIONS = [
     "Adverts",
     "Ark - Bray",
@@ -187,6 +188,18 @@ def init_db() -> None:
                 listing_url TEXT NOT NULL,
                 listing_date TEXT,
                 FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS listing_scan_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT NOT NULL,
+                level TEXT NOT NULL,
+                message TEXT NOT NULL,
+                listing_id INTEGER,
+                FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE SET NULL
             )
             """
         )
@@ -573,21 +586,51 @@ def fetch_listing(listing_id: int) -> sqlite3.Row | None:
         return conn.execute("SELECT * FROM listings WHERE id = ?", (listing_id,)).fetchone()
 
 
-def fetch_listing_health_rows() -> list[sqlite3.Row]:
+def fetch_listing_health_rows(limit: int | None = None) -> list[sqlite3.Row]:
+    query = """
+        SELECT
+            listings.*,
+            items.name AS item_name,
+            items.status AS item_status,
+            items.id AS item_id,
+            items.sku AS item_sku
+        FROM listings
+        JOIN items ON items.id = listings.item_id
+        WHERE listings.marketplace IN ('eBay', 'Adverts.ie')
+        ORDER BY listings.id DESC
+    """
+    params: list[str] = []
+    if limit is not None:
+        query += " LIMIT ?"
+        params.append(str(limit))
+    with get_db() as conn:
+        return conn.execute(query, params).fetchall()
+
+
+def add_scan_log(level: str, message: str, listing_id: int | None = None) -> None:
+    created_at = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    with get_db() as conn:
+        conn.execute(
+            """
+            INSERT INTO listing_scan_logs (created_at, level, message, listing_id)
+            VALUES (?, ?, ?, ?)
+            """,
+            (created_at, level, message, listing_id),
+        )
+
+
+def fetch_scan_logs(limit: int = 150) -> list[sqlite3.Row]:
     with get_db() as conn:
         return conn.execute(
             """
-            SELECT
-                listings.*, 
-                items.name AS item_name,
-                items.status AS item_status,
-                items.id AS item_id,
-                items.sku AS item_sku
-            FROM listings
-            JOIN items ON items.id = listings.item_id
-            WHERE listings.marketplace IN ('eBay', 'Adverts.ie')
-            ORDER BY listings.id DESC
-            """
+            SELECT logs.*, listings.marketplace, listings.listing_url, items.name AS item_name
+            FROM listing_scan_logs AS logs
+            LEFT JOIN listings ON listings.id = logs.listing_id
+            LEFT JOIN items ON items.id = listings.item_id
+            ORDER BY logs.id DESC
+            LIMIT ?
+            """,
+            (str(limit),),
         ).fetchall()
 
 
@@ -848,6 +891,7 @@ def settings_backup() -> Response:
 @app.route("/tools")
 def tools() -> str:
     listings = fetch_listing_health_rows()
+    logs = fetch_scan_logs()
     totals = {
         "all": len(listings),
         "live": 0,
@@ -861,18 +905,26 @@ def tools() -> str:
         if status not in totals:
             status = "unknown"
         totals[status] += 1
-    return render_template("tools.html", listings=listings, totals=totals)
+    return render_template(
+        "tools.html",
+        listings=listings,
+        logs=logs,
+        totals=totals,
+        scan_limit=LISTING_SCAN_LIMIT,
+    )
 
 
 @app.route("/tools/listing-health/scan", methods=["POST"])
 def scan_listing_health() -> Response:
-    listings = fetch_listing_health_rows()
+    listings = fetch_listing_health_rows(limit=LISTING_SCAN_LIMIT)
     if not listings:
+        add_scan_log("warning", "Scan skipped: no eBay or Adverts.ie listings found.")
         flash("No eBay or Adverts.ie listings found to scan.")
         return redirect(url_for("tools"))
 
     checked_at = datetime.now().strftime("%d/%m/%Y %H:%M")
     updated = 0
+    add_scan_log("info", f"Starting listing health scan for first {len(listings)} listings.")
     with get_db() as conn:
         for listing in listings:
             status, detail, http_code = scan_listing(listing)
@@ -887,8 +939,14 @@ def scan_listing_health() -> Response:
                 """,
                 (checked_at, status, detail, http_code, listing["id"]),
             )
+            add_scan_log(
+                "info",
+                f"Listing #{listing['id']} ({listing['marketplace']}) => {status}. {detail}",
+                listing_id=listing["id"],
+            )
             updated += 1
-    flash(f"Scanned {updated} listings. Review statuses in Tools.")
+    add_scan_log("info", f"Scan complete. Updated {updated} listings.")
+    flash(f"Scanned {updated} listings (limited to first {LISTING_SCAN_LIMIT}).")
     return redirect(url_for("tools"))
 
 

@@ -469,3 +469,18 @@ button.danger {
   background: #fef3c7;
   color: #92400e;
 }
+
+.pill.log-level-info {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.pill.log-level-warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.pill.log-level-error {
+  background: #fee2e2;
+  color: #991b1b;
+}
