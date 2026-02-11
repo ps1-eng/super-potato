@@ -550,7 +550,19 @@ def fetch_items(
         params.extend([f"%{search}%", f"%{search}%"])
     if filters:
         query += " WHERE " + " AND ".join(filters)
-    query += " GROUP BY items.id ORDER BY items.id DESC"
+    query += """
+        GROUP BY items.id
+        ORDER BY
+            CASE
+                WHEN items.listed_date IS NULL OR items.listed_date = '' THEN 1
+                ELSE 0
+            END,
+            CASE
+                WHEN items.listed_date IS NULL OR items.listed_date = '' THEN NULL
+                ELSE substr(items.listed_date, 7, 4) || '-' || substr(items.listed_date, 4, 2) || '-' || substr(items.listed_date, 1, 2)
+            END DESC,
+            items.id DESC
+    """
     if limit is not None:
         query += " LIMIT ?"
         params.append(str(limit))
