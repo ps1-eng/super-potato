@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="card">
+  <h2>Tools</h2>
+  <p class="muted">Run quick operational checks and maintenance tasks.</p>
+</section>
+
+<section class="card">
+  <div class="tools-header">
+    <div>
+      <h3>Listing health scan (Phase 1)</h3>
+      <p class="muted">Checks eBay and Adverts.ie listing URLs and flags listings that may no longer be live.</p>
+    </div>
+    <form method="post" action="{{ url_for('scan_listing_health') }}">
+      <button type="submit" class="primary">Scan now</button>
+    </form>
+  </div>
+
+  <div class="tools-summary-grid">
+    <div><strong>Total</strong><span>{{ totals.all }}</span></div>
+    <div><strong>Live</strong><span>{{ totals.live }}</span></div>
+    <div><strong>Not live</strong><span>{{ totals.not_live }}</span></div>
+    <div><strong>Unknown</strong><span>{{ totals.unknown }}</span></div>
+    <div><strong>Error</strong><span>{{ totals.error }}</span></div>
+    <div><strong>Unchecked</strong><span>{{ totals.unchecked }}</span></div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Marketplace</th>
+          <th>Listing URL</th>
+          <th>Status</th>
+          <th>Last checked</th>
+          <th>HTTP</th>
+          <th>Detail</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for listing in listings %}
+          <tr>
+            <td>
+              <strong>{{ listing.item_name }}</strong>
+              <div class="muted">SKU: {{ listing.item_sku or '–' }} · Item status: {{ listing.item_status }}</div>
+              <a href="{{ url_for('item_detail', item_id=listing.item_id) }}">View item</a>
+            </td>
+            <td>{{ listing.marketplace }}</td>
+            <td>
+              <a href="{{ listing.listing_url }}" target="_blank" rel="noopener">Open listing</a>
+            </td>
+            <td>
+              <span class="pill listing-status-{{ (listing.last_status or 'unchecked')|replace('_', '-') }}">
+                {{ listing.last_status or 'unchecked' }}
+              </span>
+            </td>
+            <td>{{ listing.last_checked_at or '–' }}</td>
+            <td>{{ listing.last_http_code or '–' }}</td>
+            <td>{{ listing.last_status_detail or '–' }}</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="7" class="empty">No eBay or Adverts.ie listings available to scan yet.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
