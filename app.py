@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import io
 import os
+import re
 import sqlite3
 import zipfile
 from datetime import datetime
@@ -340,7 +341,8 @@ def normalize_purchase_source(value: str) -> str:
         return replacements[lower]
 
     def format_location(prefix: str, location: str) -> str:
-        return f"{prefix} - {location.title()}"
+        cleaned_location = re.sub(r"^[\s\-–—:|,./]+", "", location.strip())
+        return f"{prefix} - {(cleaned_location or 'Other').title()}"
 
     if lower.startswith("svp "):
         return format_location("SVP", lower.replace("svp", "", 1).strip())
