@@ -133,3 +133,37 @@ Review the dry run output, then apply updates with:
 ```bash
 python scripts/normalize_purchase_sources.py --apply
 ```
+
+## AI insights for a reselling business
+The app already captures enough data to generate high-value insights with simple AI/analytics workflows.
+
+### What you can learn from current data
+- **Best sourcing locations**: compare profit and ROI by `purchase_source` to find where your best stock comes from.
+- **Marketplace performance**: track sell-through, average sale price, and margin by `sold_marketplace`.
+- **Stock risk**: flag old listed inventory (high days-in-stock) likely to tie up cash.
+- **Pricing opportunities**: detect items/SKUs consistently selling far above cost and items that underperform.
+- **Seasonality**: use month-based trends in `sale_date` to predict stronger sourcing or listing windows.
+- **Box/lot quality**: compare lot-level allocated cost vs realized sale value to see which box purchases are strongest.
+- **Cross-listing health**: use listing status scans to detect dead links and stale listings that reduce conversion.
+
+### Useful metrics to add to your weekly review
+- Gross margin % = `(sale_price - purchase_price) / sale_price`
+- Cash conversion cycle proxy = `sale_date - purchase_date`
+- Sell-through rate = `sold items / total items listed`
+- Median days to sale by source and marketplace
+- Unsold value at risk = sum of `purchase_price` for old listed items
+
+### AI use-cases that fit this app well
+- **Automated weekly summary**: LLM-generated narrative over your KPIs (what changed, what to do next).
+- **Anomaly detection**: identify unusual drops in conversion or margin by source/marketplace.
+- **Profit forecasting**: predict expected monthly profit from listed inventory and historical sell-through.
+- **Next-best-action suggestions**: recommend markdown, re-list, or cross-list actions per item.
+- **Listing text optimization** (if titles/descriptions are expanded later): suggest edits to improve sell-through.
+
+### Minimum data additions (optional, high impact)
+If you want more precise AI recommendations later, consider adding:
+- Item category/brand
+- Condition grade
+- Shipping cost and packaging cost
+- Time-to-list timestamp
+- Watchers/views (if available from marketplaces)
