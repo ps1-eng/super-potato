@@ -18,6 +18,13 @@ from flask import Flask, Response, flash, redirect, render_template, request, ur
 APP_DIR = Path(__file__).resolve().parent
 DB_PATH = Path(os.environ.get("RESALE_DB_PATH", APP_DIR / "data" / "resale.db"))
 MARKETPLACES = ["eBay", "Vinted", "Adverts.ie"]
+MARKETPLACE_ALIASES = {
+    "ebay": "eBay",
+    "e bay": "eBay",
+    "vinted": "Vinted",
+    "adverts": "Adverts.ie",
+    "adverts.ie": "Adverts.ie",
+}
 STATUSES = ["Unlisted", "Listed", "Sold"]
 DATE_FORMAT = "%d/%m/%Y"
 LISTING_SCAN_LIMIT = 20
@@ -266,8 +273,41 @@ def reconcile_sold_status() -> None:
         )
 
 
+def canonicalize_marketplaces() -> None:
+    with get_db() as conn:
+        conn.execute(
+            """
+            UPDATE items
+            SET sold_marketplace = CASE LOWER(TRIM(sold_marketplace))
+                WHEN 'ebay' THEN 'eBay'
+                WHEN 'e bay' THEN 'eBay'
+                WHEN 'adverts' THEN 'Adverts.ie'
+                WHEN 'adverts.ie' THEN 'Adverts.ie'
+                WHEN 'vinted' THEN 'Vinted'
+                ELSE sold_marketplace
+            END
+            WHERE sold_marketplace IS NOT NULL
+            """
+        )
+        conn.execute(
+            """
+            UPDATE listings
+            SET marketplace = CASE LOWER(TRIM(marketplace))
+                WHEN 'ebay' THEN 'eBay'
+                WHEN 'e bay' THEN 'eBay'
+                WHEN 'adverts' THEN 'Adverts.ie'
+                WHEN 'adverts.ie' THEN 'Adverts.ie'
+                WHEN 'vinted' THEN 'Vinted'
+                ELSE marketplace
+            END
+            WHERE marketplace IS NOT NULL
+            """
+        )
+
+
 init_db()
 reconcile_sold_status()
+canonicalize_marketplaces()
 
 def parse_decimal(value: str) -> Decimal | None:
     if value is None:
@@ -301,6 +341,15 @@ def format_currency(value: float | None) -> str:
     if value is None:
         return "–"
     return f"€{value:,.2f}"
+
+
+def normalize_marketplace(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = " ".join(value.strip().split()).lower()
+    if not normalized:
+        return None
+    return MARKETPLACE_ALIASES.get(normalized, value.strip())
 
 
 @app.template_filter("today_input")
@@ -1811,7 +1860,7 @@ def import_csv() -> str | Response:
             adverts_url = (row.get("adverts_url") or "").strip() or None
             sale_price = parse_decimal(row.get("sale_price", ""))
             sale_date = parse_date(row.get("sale_date", ""))
-            sold_marketplace = (row.get("sold_marketplace") or "").strip() or None
+            sold_marketplace = normalize_marketplace((row.get("sold_marketplace") or "").strip())
             description = (row.get("description") or "").strip() or None
             notes = (row.get("notes") or "").strip() or None
 
@@ -1877,13 +1926,25 @@ def import_csv() -> str | Response:
 def reports() -> str:
     month_filter = request.args.get("month") or "all"
     marketplace_filter = request.args.get("marketplace") or "all"
+    if marketplace_filter != "all":
+        marketplace_filter = normalize_marketplace(marketplace_filter) or "all"
     purchase_source_filter = request.args.get("purchase_source") or "all"
     summary = fetch_summary()
 
     with get_db() as conn:
         marketplace_data = conn.execute(
             """
-            SELECT COALESCE(sold_marketplace, 'Unlisted') AS marketplace,
+            SELECT COALESCE(
+                       CASE LOWER(TRIM(sold_marketplace))
+                           WHEN 'ebay' THEN 'eBay'
+                           WHEN 'e bay' THEN 'eBay'
+                           WHEN 'adverts' THEN 'Adverts.ie'
+                           WHEN 'adverts.ie' THEN 'Adverts.ie'
+                           WHEN 'vinted' THEN 'Vinted'
+                           ELSE sold_marketplace
+                       END,
+                       'Unlisted'
+                   ) AS marketplace,
                    COUNT(*) AS count,
                    SUM(COALESCE(sale_price, 0)) AS total_sales
             FROM items
@@ -1944,7 +2005,7 @@ def reports() -> str:
         except ValueError:
             continue
 
-        marketplace_name = item["sold_marketplace"] or "Unlisted"
+        marketplace_name = normalize_marketplace(item["sold_marketplace"]) or "Unlisted"
         source_name = item["purchase_source"] or "Other"
         available_months.add(sale_month)
         marketplace_names.add(marketplace_name)
