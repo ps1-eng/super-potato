@@ -18,6 +18,13 @@ from flask import Flask, Response, flash, redirect, render_template, request, ur
 APP_DIR = Path(__file__).resolve().parent
 DB_PATH = Path(os.environ.get("RESALE_DB_PATH", APP_DIR / "data" / "resale.db"))
 MARKETPLACES = ["eBay", "Vinted", "Adverts.ie"]
+MARKETPLACE_ALIASES = {
+    "ebay": "eBay",
+    "e bay": "eBay",
+    "vinted": "Vinted",
+    "adverts": "Adverts.ie",
+    "adverts.ie": "Adverts.ie",
+}
 STATUSES = ["Unlisted", "Listed", "Sold"]
 DATE_FORMAT = "%d/%m/%Y"
 LISTING_SCAN_LIMIT = 20
@@ -266,8 +273,41 @@ def reconcile_sold_status() -> None:
         )
 
 
+def canonicalize_marketplaces() -> None:
+    with get_db() as conn:
+        conn.execute(
+            """
+            UPDATE items
+            SET sold_marketplace = CASE LOWER(TRIM(sold_marketplace))
+                WHEN 'ebay' THEN 'eBay'
+                WHEN 'e bay' THEN 'eBay'
+                WHEN 'adverts' THEN 'Adverts.ie'
+                WHEN 'adverts.ie' THEN 'Adverts.ie'
+                WHEN 'vinted' THEN 'Vinted'
+                ELSE sold_marketplace
+            END
+            WHERE sold_marketplace IS NOT NULL
+            """
+        )
+        conn.execute(
+            """
+            UPDATE listings
+            SET marketplace = CASE LOWER(TRIM(marketplace))
+                WHEN 'ebay' THEN 'eBay'
+                WHEN 'e bay' THEN 'eBay'
+                WHEN 'adverts' THEN 'Adverts.ie'
+                WHEN 'adverts.ie' THEN 'Adverts.ie'
+                WHEN 'vinted' THEN 'Vinted'
+                ELSE marketplace
+            END
+            WHERE marketplace IS NOT NULL
+            """
+        )
+
+
 init_db()
 reconcile_sold_status()
+canonicalize_marketplaces()
 
 def parse_decimal(value: str) -> Decimal | None:
     if value is None:
@@ -301,6 +341,15 @@ def format_currency(value: float | None) -> str:
     if value is None:
         return "–"
     return f"€{value:,.2f}"
+
+
+def normalize_marketplace(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = " ".join(value.strip().split()).lower()
+    if not normalized:
+        return None
+    return MARKETPLACE_ALIASES.get(normalized, value.strip())
 
 
 @app.template_filter("today_input")
@@ -1811,7 +1860,7 @@ def import_csv() -> str | Response:
             adverts_url = (row.get("adverts_url") or "").strip() or None
             sale_price = parse_decimal(row.get("sale_price", ""))
             sale_date = parse_date(row.get("sale_date", ""))
-            sold_marketplace = (row.get("sold_marketplace") or "").strip() or None
+            sold_marketplace = normalize_marketplace((row.get("sold_marketplace") or "").strip())
             description = (row.get("description") or "").strip() or None
             notes = (row.get("notes") or "").strip() or None
 
@@ -1877,11 +1926,25 @@ def import_csv() -> str | Response:
 def reports() -> str:
     month_filter = request.args.get("month") or "all"
     marketplace_filter = request.args.get("marketplace") or "all"
+    if marketplace_filter != "all":
+        marketplace_filter = normalize_marketplace(marketplace_filter) or "all"
+    purchase_source_filter = request.args.get("purchase_source") or "all"
     summary = fetch_summary()
+
     with get_db() as conn:
         marketplace_data = conn.execute(
             """
-            SELECT COALESCE(sold_marketplace, 'Unlisted') AS marketplace,
+            SELECT COALESCE(
+                       CASE LOWER(TRIM(sold_marketplace))
+                           WHEN 'ebay' THEN 'eBay'
+                           WHEN 'e bay' THEN 'eBay'
+                           WHEN 'adverts' THEN 'Adverts.ie'
+                           WHEN 'adverts.ie' THEN 'Adverts.ie'
+                           WHEN 'vinted' THEN 'Vinted'
+                           ELSE sold_marketplace
+                       END,
+                       'Unlisted'
+                   ) AS marketplace,
                    COUNT(*) AS count,
                    SUM(COALESCE(sale_price, 0)) AS total_sales
             FROM items
@@ -1891,27 +1954,69 @@ def reports() -> str:
         ).fetchall()
         sold_items = conn.execute(
             """
-            SELECT purchase_price, sale_price, sale_date, sold_marketplace
+            SELECT purchase_price,
+                   purchase_date,
+                   listed_date,
+                   sale_price,
+                   sale_date,
+                   sold_marketplace,
+                   purchase_source
             FROM items
             WHERE sale_price IS NOT NULL AND sale_date IS NOT NULL
             """
         ).fetchall()
+        listed_total = conn.execute(
+            """
+            SELECT COUNT(*) AS total
+            FROM items
+            WHERE status IN ('Listed', 'Sold')
+              AND (? = 'all' OR sold_marketplace = ?)
+              AND (? = 'all' OR purchase_source = ?)
+            """,
+            (marketplace_filter, marketplace_filter, purchase_source_filter, purchase_source_filter),
+        ).fetchone()["total"]
+        sold_total = conn.execute(
+            """
+            SELECT COUNT(*) AS total
+            FROM items
+            WHERE status = 'Sold'
+              AND (? = 'all' OR sold_marketplace = ?)
+              AND (? = 'all' OR purchase_source = ?)
+            """,
+            (marketplace_filter, marketplace_filter, purchase_source_filter, purchase_source_filter),
+        ).fetchone()["total"]
+        purchase_source_options = fetch_purchase_sources()
+
     monthly_summary: dict[str, dict[str, float]] = {}
     monthly_marketplace: dict[str, dict[str, float]] = {}
     available_months: set[str] = set()
     marketplace_names: set[str] = set()
+    days_to_sale: list[int] = []
+
+    metric_sales = 0.0
+    metric_cost = 0.0
+    metric_profit = 0.0
+    metric_count = 0
+
     for item in sold_items:
         try:
-            sale_month = datetime.strptime(item["sale_date"], DATE_FORMAT).strftime("%Y-%m")
+            sale_dt = datetime.strptime(item["sale_date"], DATE_FORMAT)
+            sale_month = sale_dt.strftime("%Y-%m")
         except ValueError:
             continue
-        marketplace_name = item["sold_marketplace"] or "Unlisted"
+
+        marketplace_name = normalize_marketplace(item["sold_marketplace"]) or "Unlisted"
+        source_name = item["purchase_source"] or "Other"
         available_months.add(sale_month)
         marketplace_names.add(marketplace_name)
+
         if month_filter != "all" and sale_month != month_filter:
             continue
         if marketplace_filter != "all" and marketplace_name != marketplace_filter:
             continue
+        if purchase_source_filter != "all" and source_name != purchase_source_filter:
+            continue
+
         if sale_month not in monthly_summary:
             monthly_summary[sale_month] = {
                 "count": 0,
@@ -1923,13 +2028,28 @@ def reports() -> str:
             monthly_marketplace[sale_month] = {}
         if marketplace_name not in monthly_marketplace[sale_month]:
             monthly_marketplace[sale_month][marketplace_name] = 0.0
+
+        sale_price = float(item["sale_price"] or 0)
+        purchase_price = float(item["purchase_price"] or 0)
+        profit = sale_price - purchase_price
+
         monthly_summary[sale_month]["count"] += 1
-        monthly_summary[sale_month]["total_sales"] += float(item["sale_price"] or 0)
-        monthly_summary[sale_month]["total_cost"] += float(item["purchase_price"] or 0)
-        monthly_summary[sale_month]["profit"] += float(item["sale_price"] or 0) - float(
-            item["purchase_price"] or 0
-        )
-        monthly_marketplace[sale_month][marketplace_name] += float(item["sale_price"] or 0)
+        monthly_summary[sale_month]["total_sales"] += sale_price
+        monthly_summary[sale_month]["total_cost"] += purchase_price
+        monthly_summary[sale_month]["profit"] += profit
+        monthly_marketplace[sale_month][marketplace_name] += sale_price
+
+        metric_count += 1
+        metric_sales += sale_price
+        metric_cost += purchase_price
+        metric_profit += profit
+
+        try:
+            purchase_dt = datetime.strptime(item["purchase_date"], DATE_FORMAT)
+            days_to_sale.append((sale_dt - purchase_dt).days)
+        except (TypeError, ValueError):
+            pass
+
     monthly_rows = [
         {
             "month": month,
@@ -1940,8 +2060,33 @@ def reports() -> str:
         }
         for month, data in sorted(monthly_summary.items(), reverse=True)
     ]
+
     month_options = sorted(available_months)
     marketplace_options = sorted(marketplace_names)
+
+    sorted_days = sorted(days_to_sale)
+    median_days_to_sale = 0
+    if sorted_days:
+        mid = len(sorted_days) // 2
+        if len(sorted_days) % 2:
+            median_days_to_sale = sorted_days[mid]
+        else:
+            median_days_to_sale = int((sorted_days[mid - 1] + sorted_days[mid]) / 2)
+
+    avg_profit = (metric_profit / metric_count) if metric_count else 0.0
+    avg_roi = (metric_profit / metric_cost * 100.0) if metric_cost else 0.0
+    gross_margin = (metric_profit / metric_sales * 100.0) if metric_sales else 0.0
+    sell_through = (sold_total / listed_total * 100.0) if listed_total else 0.0
+
+    insights = {
+        "items_sold": metric_count,
+        "avg_profit": avg_profit,
+        "avg_roi": avg_roi,
+        "gross_margin": gross_margin,
+        "median_days_to_sale": median_days_to_sale,
+        "sell_through": sell_through,
+    }
+
     return render_template(
         "reports.html",
         summary=summary,
@@ -1950,8 +2095,11 @@ def reports() -> str:
         monthly_marketplace=monthly_marketplace,
         month_options=month_options,
         marketplace_options=marketplace_options,
+        purchase_source_options=purchase_source_options,
         month_filter=month_filter,
         marketplace_filter=marketplace_filter,
+        purchase_source_filter=purchase_source_filter,
+        insights=insights,
     )
 
 
