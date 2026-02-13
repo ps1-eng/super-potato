@@ -46,6 +46,15 @@
           {% endfor %}
         </select>
       </label>
+      <label>
+        Purchase source
+        <select name="purchase_source">
+          <option value="all" {% if purchase_source_filter == 'all' %}selected{% endif %}>All</option>
+          {% for source in purchase_source_options %}
+            <option value="{{ source }}" {% if purchase_source_filter == source %}selected{% endif %}>{{ source }}</option>
+          {% endfor %}
+        </select>
+      </label>
       <button type="submit">Apply</button>
       <a href="{{ url_for('reports') }}" class="link">Reset</a>
     </form>
@@ -80,6 +89,33 @@
   </div>
   <canvas id="monthlyChart" height="120"></canvas>
   <canvas id="marketplaceChart" height="140"></canvas>
+</section>
+
+<section class="card summary">
+  <div>
+    <h3>Items sold (filtered)</h3>
+    <p>{{ insights.items_sold }}</p>
+  </div>
+  <div>
+    <h3>Avg profit / item</h3>
+    <p>{{ insights.avg_profit | currency }}</p>
+  </div>
+  <div>
+    <h3>Gross margin</h3>
+    <p>{{ insights.gross_margin | round(1) }}%</p>
+  </div>
+  <div>
+    <h3>Sell-through</h3>
+    <p>{{ insights.sell_through | round(1) }}%</p>
+  </div>
+  <div>
+    <h3>Avg ROI</h3>
+    <p>{{ insights.avg_roi | round(1) }}%</p>
+  </div>
+  <div>
+    <h3>Median days to sale</h3>
+    <p>{{ insights.median_days_to_sale }}</p>
+  </div>
 </section>
 
 <section class="card">
