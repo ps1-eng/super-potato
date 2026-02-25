@@ -94,6 +94,9 @@
         <li>Sale price: {{ item.sale_price | currency }}</li>
         <li>Sale date: {{ item.sale_date or '–' }}</li>
         <li>Sold on: {{ item.sold_marketplace or '–' }}</li>
+        <li>
+          Profit: {% if item.sale_price is not none %}{{ (item.sale_price - item.purchase_price) | currency }}{% else %}–{% endif %}
+        </li>
       </ul>
     </div>
   </div>
