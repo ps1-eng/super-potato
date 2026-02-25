@@ -1633,13 +1633,26 @@ def edit_item(item_id: int) -> str | Response:
         flash("Item not found.")
         return redirect(url_for("index"))
 
+    return_to_lot_id = request.args.get("return_to_lot_id", type=int)
+    if request.method == "POST":
+        return_to_lot_id = request.form.get("return_to_lot_id", type=int)
+    if return_to_lot_id is not None and item["lot_id"] != return_to_lot_id:
+        return_to_lot_id = None
+
     if request.method == "GET":
+        back_url = (
+            url_for("lot_edit", lot_id=return_to_lot_id, _anchor="add-item")
+            if return_to_lot_id is not None
+            else url_for("item_detail", item_id=item_id)
+        )
         return render_template(
             "item_edit.html",
             item=item,
             purchase_sources=fetch_purchase_sources(),
             statuses=STATUSES,
             date_format=DATE_FORMAT,
+            back_url=back_url,
+            return_to_lot_id=return_to_lot_id,
         )
 
     name = request.form.get("name", "").strip()
@@ -1654,24 +1667,28 @@ def edit_item(item_id: int) -> str | Response:
     listed_date = parse_date(listed_date_raw) if listed_date_raw else None
     notes = request.form.get("notes", "").strip() or None
 
+    edit_redirect_kwargs: dict[str, int] = {"item_id": item_id}
+    if return_to_lot_id is not None:
+        edit_redirect_kwargs["return_to_lot_id"] = return_to_lot_id
+
     if not name:
         flash("Item name is required.")
-        return redirect(url_for("edit_item", item_id=item_id))
+        return redirect(url_for("edit_item", **edit_redirect_kwargs))
     if purchase_price is None:
         flash("Purchase price must be a number.")
-        return redirect(url_for("edit_item", item_id=item_id))
+        return redirect(url_for("edit_item", **edit_redirect_kwargs))
     if purchase_date is None:
         flash(f"Purchase date must be in {DATE_FORMAT} format.")
-        return redirect(url_for("edit_item", item_id=item_id))
+        return redirect(url_for("edit_item", **edit_redirect_kwargs))
     if not purchase_source:
         flash("Purchase source is required.")
-        return redirect(url_for("edit_item", item_id=item_id))
+        return redirect(url_for("edit_item", **edit_redirect_kwargs))
     if status not in STATUSES:
         flash("Invalid status.")
-        return redirect(url_for("edit_item", item_id=item_id))
+        return redirect(url_for("edit_item", **edit_redirect_kwargs))
     if listed_date_raw and listed_date is None:
         flash(f"Listed date must be in {DATE_FORMAT} format.")
-        return redirect(url_for("edit_item", item_id=item_id))
+        return redirect(url_for("edit_item", **edit_redirect_kwargs))
 
     with get_db() as conn:
         ensure_purchase_source(conn, purchase_source)
@@ -1697,6 +1714,8 @@ def edit_item(item_id: int) -> str | Response:
         )
 
     flash("Item updated.")
+    if return_to_lot_id is not None:
+        return redirect(url_for("lot_edit", lot_id=return_to_lot_id, _anchor="add-item"))
     return redirect(url_for("item_detail", item_id=item_id))
 
 
