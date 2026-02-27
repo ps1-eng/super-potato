@@ -59,7 +59,7 @@
       <div class="sold-marketplace-options" data-sold-marketplace-options>
         {% for option in marketplaces %}
           <label class="sold-marketplace-option">
-            <input type="checkbox" value="{{ option }}" data-sold-marketplace-checkbox {% if loop.first %}checked{% endif %} />
+            <input type="checkbox" value="{{ option }}" data-sold-marketplace-checkbox />
             <span>{{ option }}</span>
           </label>
         {% endfor %}
@@ -168,11 +168,7 @@
       checkbox.addEventListener("change", () => syncValue(checkbox));
     });
 
-    const initiallyChecked = checkboxes.find((checkbox) => checkbox.checked) || checkboxes[0];
-    if (initiallyChecked) {
-      initiallyChecked.checked = true;
-      syncValue(initiallyChecked);
-    }
+    syncValue(checkboxes.find((checkbox) => checkbox.checked));
   })();
 </script>
 
