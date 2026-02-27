@@ -53,14 +53,18 @@
         required
       />
     </label>
-    <label>
-      Sold marketplace
-      <select name="sold_marketplace" required>
+    <fieldset class="sold-marketplace-group">
+      <legend>Sold marketplace</legend>
+      <input type="hidden" name="sold_marketplace" id="sold-marketplace-value" required />
+      <div class="sold-marketplace-options" data-sold-marketplace-options>
         {% for option in marketplaces %}
-          <option value="{{ option }}">{{ option }}</option>
+          <label class="sold-marketplace-option">
+            <input type="checkbox" value="{{ option }}" data-sold-marketplace-checkbox {% if loop.first %}checked{% endif %} />
+            <span>{{ option }}</span>
+          </label>
         {% endfor %}
-      </select>
-    </label>
+      </div>
+    </fieldset>
     <button type="submit" class="primary">Mark sold</button>
   </form>
 </section>
@@ -94,6 +98,9 @@
         <li>Sale price: {{ item.sale_price | currency }}</li>
         <li>Sale date: {{ item.sale_date or '–' }}</li>
         <li>Sold on: {{ item.sold_marketplace or '–' }}</li>
+        <li>
+          Profit: {% if item.sale_price is not none %}{{ (item.sale_price - item.purchase_price) | currency }}{% else %}–{% endif %}
+        </li>
       </ul>
     </div>
   </div>
@@ -143,4 +150,30 @@
     <button type="submit" class="button">Delete item</button>
   </form>
 </section>
+
+<script>
+  (() => {
+    const hiddenInput = document.getElementById("sold-marketplace-value");
+    const checkboxes = Array.from(document.querySelectorAll("[data-sold-marketplace-checkbox]"));
+    if (!hiddenInput || checkboxes.length === 0) return;
+
+    const syncValue = (activeCheckbox) => {
+      checkboxes.forEach((checkbox) => {
+        if (checkbox !== activeCheckbox) checkbox.checked = false;
+      });
+      hiddenInput.value = activeCheckbox && activeCheckbox.checked ? activeCheckbox.value : "";
+    };
+
+    checkboxes.forEach((checkbox) => {
+      checkbox.addEventListener("change", () => syncValue(checkbox));
+    });
+
+    const initiallyChecked = checkboxes.find((checkbox) => checkbox.checked) || checkboxes[0];
+    if (initiallyChecked) {
+      initiallyChecked.checked = true;
+      syncValue(initiallyChecked);
+    }
+  })();
+</script>
+
 {% endblock %}
