@@ -194,12 +194,20 @@
                 <form method="post" action="{{ url_for('quick_update_item', item_id=item.id) }}">
                   <div class="filters-form">
                     <input type="number" step="0.01" name="sale_price" placeholder="Sale €" />
-                    <select name="sold_marketplace">
-                      <option value="">Sold on...</option>
+                    <fieldset class="sold-marketplace-options">
+                      <legend>Sold on</legend>
                       {% for option in marketplaces %}
-                        <option value="{{ option }}">{{ option }}</option>
+                        <label>
+                          <input
+                            type="checkbox"
+                            name="sold_marketplace"
+                            value="{{ option }}"
+                            class="sold-marketplace-checkbox"
+                          />
+                          {{ option }}
+                        </label>
                       {% endfor %}
-                    </select>
+                    </fieldset>
                     <input
                       type="date"
                       name="sale_date"
@@ -262,6 +270,42 @@
     syncQuantityVisibility();
     multipleToggle.addEventListener("change", syncQuantityVisibility);
   }
+
+  const addItemForm = document.querySelector("form[action='{{ url_for('add_item') }}']");
+  const purchaseSourceInput = addItemForm?.querySelector("input[name='purchase_source']");
+  const purchaseSourceStorageKey = "resale:add-item:purchase-source";
+
+  if (purchaseSourceInput) {
+    const storedPurchaseSource = window.localStorage.getItem(purchaseSourceStorageKey);
+    if (storedPurchaseSource && !purchaseSourceInput.value.trim()) {
+      purchaseSourceInput.value = storedPurchaseSource;
+    }
+
+    addItemForm?.addEventListener("submit", () => {
+      const sourceValue = purchaseSourceInput.value.trim();
+      if (sourceValue) {
+        window.localStorage.setItem(purchaseSourceStorageKey, sourceValue);
+      }
+    });
+  }
+
+  const soldMarketplaceCheckboxes = document.querySelectorAll(".sold-marketplace-checkbox");
+  soldMarketplaceCheckboxes.forEach((checkbox) => {
+    checkbox.addEventListener("change", (event) => {
+      if (!event.target.checked) {
+        return;
+      }
+      const parentForm = event.target.closest("form");
+      if (!parentForm) {
+        return;
+      }
+      parentForm.querySelectorAll(".sold-marketplace-checkbox").forEach((option) => {
+        if (option !== event.target) {
+          option.checked = false;
+        }
+      });
+    });
+  });
 </script>
 
 {% endblock %}
