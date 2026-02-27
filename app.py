@@ -890,6 +890,8 @@ def index() -> str:
     page = request.args.get("page", type=int) or 1
     per_page = 25
     offset = (page - 1) * per_page
+    added_item_id = request.args.get("added_item_id", type=int)
+    recently_added_item = fetch_item(added_item_id) if added_item_id else None
     items = fetch_items(
         status=status,
         marketplace=marketplace,
@@ -927,6 +929,7 @@ def index() -> str:
         purchase_sources=fetch_purchase_sources(),
         marketplaces=MARKETPLACES,
         statuses=STATUSES,
+        recently_added_item=recently_added_item,
     )
 
 
@@ -1354,7 +1357,7 @@ def add_item() -> Response:
     with get_db() as conn:
         ensure_purchase_source(conn, purchase_source)
         if quantity == 1:
-            conn.execute(
+            cursor = conn.execute(
                 """
                 INSERT INTO items
                     (name, sku, description, purchase_price, purchase_date, purchase_source, status, listed_date, notes)
@@ -1363,6 +1366,7 @@ def add_item() -> Response:
                 """,
                 row,
             )
+            created_item_id = cursor.lastrowid
         else:
             conn.executemany(
                 """
@@ -1373,12 +1377,14 @@ def add_item() -> Response:
                 """,
                 [row] * quantity,
             )
+            created_item_id = None
 
     if quantity == 1:
         flash("Item added.")
+        return redirect(url_for("index", added_item_id=created_item_id))
     else:
         flash(f"{quantity} items added.")
-    return redirect(url_for("index"))
+        return redirect(url_for("index"))
 
 
 @app.route("/purchase-sources", methods=["POST"])
