@@ -890,6 +890,8 @@ def index() -> str:
     page = request.args.get("page", type=int) or 1
     per_page = 25
     offset = (page - 1) * per_page
+    added_item_id = request.args.get("added_item_id", type=int)
+    recently_added_item = fetch_item(added_item_id) if added_item_id else None
     items = fetch_items(
         status=status,
         marketplace=marketplace,
@@ -1379,9 +1381,11 @@ def add_item() -> Response:
                 """,
                 [row] * quantity,
             )
+            created_item_id = None
 
     if quantity == 1:
         flash("Item added.")
+        return redirect(url_for("index", added_item_id=created_item_id))
     else:
         flash(f"{quantity} items added.")
 
