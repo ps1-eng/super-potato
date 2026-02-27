@@ -53,21 +53,19 @@
         required
       />
     </label>
-    <fieldset class="sold-marketplace-options span-2">
+    <fieldset class="sold-marketplace-group">
       <legend>Sold marketplace</legend>
-      {% for option in marketplaces %}
-        <label>
-          <input
-            type="checkbox"
-            name="sold_marketplace"
-            value="{{ option }}"
-            class="sold-marketplace-checkbox"
-          />
-          {{ option }}
-        </label>
-      {% endfor %}
+      <input type="hidden" name="sold_marketplace" id="sold-marketplace-value" required />
+      <div class="sold-marketplace-options" data-sold-marketplace-options>
+        {% for option in marketplaces %}
+          <label class="sold-marketplace-option">
+            <input type="checkbox" value="{{ option }}" data-sold-marketplace-checkbox {% if loop.first %}checked{% endif %} />
+            <span>{{ option }}</span>
+          </label>
+        {% endfor %}
+      </div>
     </fieldset>
-    <button type="submit" class="primary sold-submit">Mark sold</button>
+    <button type="submit" class="primary">Mark sold</button>
   </form>
 </section>
 
@@ -152,23 +150,30 @@
     <button type="submit" class="button">Delete item</button>
   </form>
 </section>
+
 <script>
-  const soldMarketplaceCheckboxes = document.querySelectorAll(".sold-marketplace-checkbox");
-  soldMarketplaceCheckboxes.forEach((checkbox) => {
-    checkbox.addEventListener("change", (event) => {
-      if (!event.target.checked) {
-        return;
-      }
-      const parentForm = event.target.closest("form");
-      if (!parentForm) {
-        return;
-      }
-      parentForm.querySelectorAll(".sold-marketplace-checkbox").forEach((option) => {
-        if (option !== event.target) {
-          option.checked = false;
-        }
+  (() => {
+    const hiddenInput = document.getElementById("sold-marketplace-value");
+    const checkboxes = Array.from(document.querySelectorAll("[data-sold-marketplace-checkbox]"));
+    if (!hiddenInput || checkboxes.length === 0) return;
+
+    const syncValue = (activeCheckbox) => {
+      checkboxes.forEach((checkbox) => {
+        if (checkbox !== activeCheckbox) checkbox.checked = false;
       });
+      hiddenInput.value = activeCheckbox && activeCheckbox.checked ? activeCheckbox.value : "";
+    };
+
+    checkboxes.forEach((checkbox) => {
+      checkbox.addEventListener("change", () => syncValue(checkbox));
     });
-  });
+
+    const initiallyChecked = checkboxes.find((checkbox) => checkbox.checked) || checkboxes[0];
+    if (initiallyChecked) {
+      initiallyChecked.checked = true;
+      syncValue(initiallyChecked);
+    }
+  })();
 </script>
+
 {% endblock %}
