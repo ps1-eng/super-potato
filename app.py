@@ -1357,7 +1357,7 @@ def add_item() -> Response:
         notes,
     )
 
-    added_item_id: int | None = None
+    created_item_id: int | None = None
     with get_db() as conn:
         ensure_purchase_source(conn, purchase_source)
         if quantity == 1:
@@ -1370,7 +1370,7 @@ def add_item() -> Response:
                 """,
                 row,
             )
-            added_item_id = int(cursor.lastrowid)
+            created_item_id = int(cursor.lastrowid)
         else:
             conn.executemany(
                 """
@@ -1389,8 +1389,8 @@ def add_item() -> Response:
     else:
         flash(f"{quantity} items added.")
 
-    if added_item_id is not None:
-        return redirect(url_for("index", added_item_id=added_item_id))
+    if created_item_id is not None:
+        return redirect(url_for("index", added_item_id=created_item_id))
     return redirect(url_for("index"))
 
 
