@@ -2,7 +2,7 @@
 
 {% block content %}
 <section class="card">
-  <div class="item-header"><h2>Add item</h2><a class="button" href="{{ url_for('split_box_wizard') }}">Split box wizard</a></div>
+  <div class="item-header"><h2>Add item</h2></div>
   <form class="grid" method="post" action="{{ url_for('add_item') }}">
     <label>
       Item name
@@ -72,9 +72,14 @@
     </label>
     <div class="form-actions">
       <button type="submit" class="primary">Save item</button>
-      <a class="button" href="{{ url_for('split_box_wizard') }}">Split box wizard</a>
     </div>
   </form>
+  {% if recently_added_item %}
+    <div class="muted">
+      Added: <strong>{{ recently_added_item.name }}</strong> ·
+      <a href="{{ url_for('edit_item', item_id=recently_added_item.id) }}">Edit</a>
+    </div>
+  {% endif %}
   <datalist id="purchase-sources">
     {% for source in purchase_sources %}
       <option value="{{ source }}"></option>
