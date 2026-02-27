@@ -2,12 +2,10 @@
 
 {% block content %}
 <section class="card">
-<<<<<<< Updated upstream
-  <div class="item-header"><h2>Add item</h2></div>
+  <div class="item-header">
+    <h2>Add item</h2>
+  </div>
   <form class="grid" method="post" action="{{ url_for('add_item') }}">
-
-    <form class="grid" method="post" action="{{ url_for('add_item') }}">
-
     <label>
       Item name
       <input type="text" name="name" required />
@@ -76,10 +74,6 @@
     </label>
     <div class="form-actions">
       <button type="submit" class="primary">Save item</button>
-
-
-      
->>>>>>> Stashed changes
     </div>
   </form>
   {% if recently_added_item %}
