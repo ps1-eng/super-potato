@@ -75,6 +75,12 @@
       <a class="button" href="{{ url_for('split_box_wizard') }}">Split box wizard</a>
     </div>
   </form>
+  {% if recently_added_item %}
+    <p class="muted">
+      Last added: <strong>{{ recently_added_item.name }}</strong>
+      · <a href="{{ url_for('item_detail', item_id=recently_added_item.id) }}">View item</a>
+    </p>
+  {% endif %}
   <datalist id="purchase-sources">
     {% for source in purchase_sources %}
       <option value="{{ source }}"></option>

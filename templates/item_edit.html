@@ -4,9 +4,10 @@
 <section class="card">
   <div class="item-header">
     <h2>Edit item</h2>
-    <a class="link" href="{{ url_for('item_detail', item_id=item.id) }}">Back to item</a>
+    <a class="link" href="{{ back_url }}">Back</a>
   </div>
   <form class="grid" method="post" action="{{ url_for('edit_item', item_id=item.id) }}">
+    {% if return_to_lot_id %}<input type="hidden" name="return_to_lot_id" value="{{ return_to_lot_id }}" />{% endif %}
     <label>
       Item name
       <input type="text" name="name" value="{{ item.name }}" required />
