@@ -2,7 +2,9 @@
 
 {% block content %}
 <section class="card">
-  <div class="item-header"><h2>Add item</h2></div>
+  <div class="item-header">
+    <h2>Add item</h2>
+  </div>
   <form class="grid" method="post" action="{{ url_for('add_item') }}">
     <label>
       Item name
