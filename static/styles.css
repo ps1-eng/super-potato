@@ -93,6 +93,37 @@ nav a:last-child {
   font-weight: 600;
 }
 
+
+.sold-marketplace-group {
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+  min-height: 46px;
+}
+
+.sold-marketplace-group legend {
+  padding: 0 0.35rem;
+  font-weight: 600;
+}
+
+.sold-marketplace-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.sold-marketplace-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+}
+
+.sold-marketplace-option input {
+  margin: 0;
+}
+
 input,
 select,
 textarea {
@@ -367,6 +398,17 @@ td:first-child {
 
 .span-2 {
   grid-column: span 2;
+}
+
+
+.inline-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.inline-actions form {
+  margin: 0;
 }
 
 @media (max-width: 720px) {
