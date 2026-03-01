@@ -77,10 +77,10 @@
     </div>
   </form>
   {% if recently_added_item %}
-    <p class="muted">
-      Last added: <strong>{{ recently_added_item.name }}</strong>
-      · <a href="{{ url_for('item_detail', item_id=recently_added_item.id) }}">View item</a>
-    </p>
+    <div class="muted">
+      Added: <strong>{{ recently_added_item.name }}</strong> ·
+      <a href="{{ url_for('edit_item', item_id=recently_added_item.id) }}">Edit</a>
+    </div>
   {% endif %}
   <datalist id="purchase-sources">
     {% for source in purchase_sources %}

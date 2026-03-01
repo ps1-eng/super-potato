@@ -1370,7 +1370,7 @@ def add_item() -> Response:
                 """,
                 row,
             )
-            created_item_id = int(cursor.lastrowid)
+            created_item_id = cursor.lastrowid
         else:
             conn.executemany(
                 """
@@ -1388,10 +1388,7 @@ def add_item() -> Response:
         return redirect(url_for("index", added_item_id=created_item_id))
     else:
         flash(f"{quantity} items added.")
-
-    if created_item_id is not None:
-        return redirect(url_for("index", added_item_id=created_item_id))
-    return redirect(url_for("index"))
+        return redirect(url_for("index"))
 
 
 @app.route("/purchase-sources", methods=["POST"])
