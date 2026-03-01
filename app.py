@@ -914,6 +914,9 @@ def index() -> str:
     )
     total_pages = max(1, (total_items + per_page - 1) // per_page)
     sku_options = fetch_sku_options()
+    added_item_id = request.args.get("added_item_id", type=int)
+    recently_added_item = fetch_item(added_item_id) if added_item_id is not None else None
+
     return render_template(
         "index.html",
         items=items,
@@ -1354,6 +1357,7 @@ def add_item() -> Response:
         notes,
     )
 
+    created_item_id: int | None = None
     with get_db() as conn:
         ensure_purchase_source(conn, purchase_source)
         if quantity == 1:
