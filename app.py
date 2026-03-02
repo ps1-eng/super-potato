@@ -6,9 +6,10 @@ import os
 import re
 import sqlite3
 import zipfile
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from typing import Iterable
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -120,6 +121,20 @@ PURCHASE_SOURCE_OPTIONS = [
     "Wholesale - Vintage",
     "Wholesale - Other",
 ]
+
+def resolve_app_timezone() -> ZoneInfo | timezone:
+    try:
+        return ZoneInfo("Europe/London")
+    except ZoneInfoNotFoundError:
+        return datetime.now().astimezone().tzinfo or timezone.utc
+
+
+APP_TIMEZONE = resolve_app_timezone()
+
+
+def now_local() -> datetime:
+    return datetime.now(APP_TIMEZONE)
+
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("RESALE_SECRET_KEY", "resale-dev-key")
@@ -354,7 +369,7 @@ def normalize_marketplace(value: str | None) -> str | None:
 
 @app.template_filter("today_input")
 def today_input_filter(_: str | None = None) -> str:
-    return datetime.now().strftime("%Y-%m-%d")
+    return now_local().strftime("%Y-%m-%d")
 
 
 @app.template_filter("input_date")
@@ -676,7 +691,7 @@ def add_scan_log(
     listing_id: int | None = None,
     conn: sqlite3.Connection | None = None,
 ) -> None:
-    created_at = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    created_at = now_local().strftime("%d/%m/%Y %H:%M:%S")
     if conn is None:
         with get_db() as db_conn:
             db_conn.execute(
@@ -890,6 +905,8 @@ def index() -> str:
     page = request.args.get("page", type=int) or 1
     per_page = 25
     offset = (page - 1) * per_page
+    added_item_id = request.args.get("added_item_id", type=int)
+    recently_added_item = fetch_item(added_item_id) if added_item_id else None
     items = fetch_items(
         status=status,
         marketplace=marketplace,
@@ -927,6 +944,7 @@ def index() -> str:
         purchase_sources=fetch_purchase_sources(),
         marketplaces=MARKETPLACES,
         statuses=STATUSES,
+        recently_added_item=recently_added_item,
     )
 
 
@@ -940,7 +958,7 @@ def settings() -> str:
 
 @app.route("/settings/backup")
 def settings_backup() -> Response:
-    backup_name = f"super-potato-backup-{datetime.now().strftime('%Y%m%d-%H%M%S')}.zip"
+    backup_name = f"super-potato-backup-{now_local().strftime('%Y%m%d-%H%M%S')}.zip"
     memory_file = io.BytesIO()
 
     with zipfile.ZipFile(memory_file, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
@@ -1000,7 +1018,7 @@ def scan_listing_health() -> Response:
         flash("No eBay or Adverts.ie listings found to scan.")
         return redirect(url_for("tools"))
 
-    checked_at = datetime.now().strftime("%d/%m/%Y %H:%M")
+    checked_at = now_local().strftime("%d/%m/%Y %H:%M")
     updated = 0
 
     scan_results: list[tuple[sqlite3.Row, str, str, int | None]] = []
@@ -1354,7 +1372,7 @@ def add_item() -> Response:
     with get_db() as conn:
         ensure_purchase_source(conn, purchase_source)
         if quantity == 1:
-            conn.execute(
+            cursor = conn.execute(
                 """
                 INSERT INTO items
                     (name, sku, description, purchase_price, purchase_date, purchase_source, status, listed_date, notes)
@@ -1363,6 +1381,7 @@ def add_item() -> Response:
                 """,
                 row,
             )
+            created_item_id = cursor.lastrowid
         else:
             conn.executemany(
                 """
@@ -1373,12 +1392,14 @@ def add_item() -> Response:
                 """,
                 [row] * quantity,
             )
+            created_item_id = None
 
     if quantity == 1:
         flash("Item added.")
+        return redirect(url_for("index", added_item_id=created_item_id))
     else:
         flash(f"{quantity} items added.")
-    return redirect(url_for("index"))
+        return redirect(url_for("index"))
 
 
 @app.route("/purchase-sources", methods=["POST"])
@@ -1514,7 +1535,7 @@ def add_listing(item_id: int) -> Response:
     listing_date_raw = request.form.get("listing_date", "")
     listing_date = parse_date(listing_date_raw) if listing_date_raw.strip() else None
     sku = request.form.get("sku", "").strip() or None
-    listing_date = listing_date or datetime.now().strftime(DATE_FORMAT)
+    listing_date = listing_date or now_local().strftime(DATE_FORMAT)
     listings_to_add = [
         ("eBay", request.form.get("ebay_url", "").strip()),
         ("Vinted", request.form.get("vinted_url", "").strip()),
@@ -1598,7 +1619,7 @@ def quick_update_item(item_id: int) -> Response:
     sale_date_raw = request.form.get("sale_date", "").strip()
 
     sale_price = parse_decimal(sale_price_raw) if sale_price_raw else None
-    sale_date = parse_date(sale_date_raw) if sale_date_raw else datetime.now().strftime(DATE_FORMAT)
+    sale_date = parse_date(sale_date_raw) if sale_date_raw else now_local().strftime(DATE_FORMAT)
 
     with get_db() as conn:
         if sku is not None:
@@ -2119,6 +2140,63 @@ def reports() -> str:
         marketplace_filter=marketplace_filter,
         purchase_source_filter=purchase_source_filter,
         insights=insights,
+    )
+
+
+@app.route("/reports/month/<month>/items")
+def reports_month_items(month: str) -> str | Response:
+    try:
+        datetime.strptime(month, "%Y-%m")
+    except ValueError:
+        flash("Invalid month selected.")
+        return redirect(url_for("reports"))
+
+    marketplace_filter = request.args.get("marketplace") or "all"
+    if marketplace_filter != "all":
+        marketplace_filter = normalize_marketplace(marketplace_filter) or "all"
+
+    purchase_source_filter = normalize_purchase_source(request.args.get("purchase_source", "").strip())
+    if not purchase_source_filter:
+        purchase_source_filter = "all"
+
+    query = """
+        SELECT id,
+               name,
+               sku,
+               purchase_price,
+               purchase_date,
+               sale_price,
+               sale_date,
+               sold_marketplace,
+               purchase_source
+        FROM items
+        WHERE sale_price IS NOT NULL
+          AND sale_date IS NOT NULL
+          AND substr(sale_date, 7, 4) || '-' || substr(sale_date, 4, 2) = ?
+    """
+    params: list[str] = [month]
+
+    if marketplace_filter != "all":
+        query += " AND sold_marketplace = ?"
+        params.append(marketplace_filter)
+    if purchase_source_filter != "all":
+        query += " AND purchase_source = ?"
+        params.append(purchase_source_filter)
+
+    query += """
+        ORDER BY substr(sale_date, 7, 4) || '-' || substr(sale_date, 4, 2) || '-' || substr(sale_date, 1, 2) DESC,
+                 id DESC
+    """
+
+    with get_db() as conn:
+        items = conn.execute(query, params).fetchall()
+
+    return render_template(
+        "reports_month_items.html",
+        month=month,
+        items=items,
+        marketplace_filter=marketplace_filter,
+        purchase_source_filter=purchase_source_filter,
     )
 
 
