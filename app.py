@@ -6,10 +6,10 @@ import os
 import re
 import sqlite3
 import zipfile
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from typing import Iterable
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -122,7 +122,14 @@ PURCHASE_SOURCE_OPTIONS = [
     "Wholesale - Other",
 ]
 
-APP_TIMEZONE = ZoneInfo("Europe/London")
+def resolve_app_timezone() -> ZoneInfo | timezone:
+    try:
+        return ZoneInfo("Europe/London")
+    except ZoneInfoNotFoundError:
+        return datetime.now().astimezone().tzinfo or timezone.utc
+
+
+APP_TIMEZONE = resolve_app_timezone()
 
 
 def now_local() -> datetime:
