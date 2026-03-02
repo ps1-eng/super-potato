@@ -1715,13 +1715,21 @@ def edit_item(item_id: int) -> str | Response:
         flash(f"Listed date must be in {DATE_FORMAT} format.")
         return redirect(url_for("edit_item", **edit_redirect_kwargs))
 
+    sale_price = item["sale_price"]
+    sale_date = item["sale_date"]
+    sold_marketplace = item["sold_marketplace"]
+    if status != "Sold":
+        sale_price = None
+        sale_date = None
+        sold_marketplace = None
+
     with get_db() as conn:
         ensure_purchase_source(conn, purchase_source)
         conn.execute(
             """
             UPDATE items
             SET name = ?, sku = ?, description = ?, purchase_price = ?, purchase_date = ?,
-                purchase_source = ?, status = ?, listed_date = ?, notes = ?
+                purchase_source = ?, status = ?, listed_date = ?, sale_price = ?, sale_date = ?, sold_marketplace = ?, notes = ?
             WHERE id = ?
             """,
             (
@@ -1733,6 +1741,9 @@ def edit_item(item_id: int) -> str | Response:
                 purchase_source,
                 status,
                 listed_date,
+                sale_price,
+                sale_date,
+                sold_marketplace,
                 notes,
                 item_id,
             ),
