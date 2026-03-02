@@ -74,7 +74,13 @@
         {% for row in monthly_rows %}
           <tr>
             <td>{{ row.month }}</td>
-            <td>{{ row.count }}</td>
+            <td>
+              {% if row.count %}
+                <a href="{{ url_for('reports_month_items', month=row.month, marketplace=marketplace_filter, purchase_source=purchase_source_filter) }}">{{ row.count }}</a>
+              {% else %}
+                0
+              {% endif %}
+            </td>
             <td>{{ row.total_sales | currency }}</td>
             <td>{{ row.total_cost | currency }}</td>
             <td>{{ row.profit | currency }}</td>
