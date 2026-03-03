@@ -564,3 +564,25 @@ button.danger {
   background: #fee2e2;
   color: #991b1b;
 }
+
+
+.sortable-header {
+  cursor: pointer;
+  user-select: none;
+}
+
+.sortable-header::after {
+  content: " ↕";
+  font-size: 0.8em;
+  color: #9ca3af;
+}
+
+.sortable-header[data-sort-direction="asc"]::after {
+  content: " ▲";
+  color: #2563eb;
+}
+
+.sortable-header[data-sort-direction="desc"]::after {
+  content: " ▼";
+  color: #2563eb;
+}
