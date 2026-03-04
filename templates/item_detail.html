@@ -153,10 +153,19 @@
   </form>
 </section>
 <script>
-  const markSoldSaleDateInput = document.querySelector("form[action='{{ url_for('mark_sold', item_id=item.id) }}'] input[name='sale_date']");
-  if (markSoldSaleDateInput && !markSoldSaleDateInput.value) {
+  const browserToday = (() => {
     const today = new Date();
-    markSoldSaleDateInput.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  })();
+
+  const listingDateInput = document.querySelector("form[action='{{ url_for('add_listing', item_id=item.id) }}'] input[name='listing_date']");
+  if (listingDateInput) {
+    listingDateInput.value = browserToday;
+  }
+
+  const markSoldSaleDateInput = document.querySelector("form[action='{{ url_for('mark_sold', item_id=item.id) }}'] input[name='sale_date']");
+  if (markSoldSaleDateInput) {
+    markSoldSaleDateInput.value = browserToday;
   }
 
   const soldMarketplaceCheckboxes = document.querySelectorAll(".sold-marketplace-checkbox");
