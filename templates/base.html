@@ -42,5 +42,83 @@
     {% block content %}{% endblock %}
   </main>
 
+  <script>
+    const toComparableValue = (rawValue) => {
+      const value = rawValue.trim();
+      if (!value || value === "–") {
+        return { type: "empty", value: "" };
+      }
+
+      const dateMatch = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (dateMatch) {
+        const [, dd, mm, yyyy] = dateMatch;
+        return { type: "number", value: Number(`${yyyy}${mm}${dd}`) };
+      }
+
+      const money = value.replace(/€/g, "").replace(/,/g, "");
+      if (/^-?\d+(\.\d+)?$/.test(money)) {
+        return { type: "number", value: Number(money) };
+      }
+
+      return { type: "string", value: value.toLowerCase() };
+    };
+
+    document.querySelectorAll("table.sortable-table").forEach((table) => {
+      const headerCells = table.querySelectorAll("thead th");
+      const tbody = table.querySelector("tbody");
+      if (!tbody || !headerCells.length) {
+        return;
+      }
+
+      headerCells.forEach((headerCell, index) => {
+        headerCell.classList.add("sortable-header");
+        headerCell.setAttribute("role", "button");
+        headerCell.setAttribute("tabindex", "0");
+
+        const sortRows = () => {
+          const nextDirection = headerCell.dataset.sortDirection === "asc" ? "desc" : "asc";
+          headerCells.forEach((cell) => {
+            if (cell !== headerCell) {
+              cell.dataset.sortDirection = "";
+            }
+          });
+          headerCell.dataset.sortDirection = nextDirection;
+
+          const rows = Array.from(tbody.querySelectorAll("tr"));
+          const sortableRows = rows.filter((row) => !row.querySelector("td.empty"));
+
+          sortableRows.sort((rowA, rowB) => {
+            const valueA = toComparableValue(rowA.children[index]?.innerText ?? "");
+            const valueB = toComparableValue(rowB.children[index]?.innerText ?? "");
+
+            if (valueA.type === "empty" && valueB.type !== "empty") {
+              return 1;
+            }
+            if (valueB.type === "empty" && valueA.type !== "empty") {
+              return -1;
+            }
+
+            if (valueA.type === "number" && valueB.type === "number") {
+              return nextDirection === "asc" ? valueA.value - valueB.value : valueB.value - valueA.value;
+            }
+
+            const comparison = String(valueA.value).localeCompare(String(valueB.value), undefined, { numeric: true });
+            return nextDirection === "asc" ? comparison : -comparison;
+          });
+
+          sortableRows.forEach((row) => tbody.appendChild(row));
+        };
+
+        headerCell.addEventListener("click", sortRows);
+        headerCell.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            sortRows();
+          }
+        });
+      });
+    });
+  </script>
+
 </body>
 </html>
