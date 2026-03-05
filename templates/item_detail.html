@@ -53,15 +53,21 @@
         required
       />
     </label>
-    <label>
-      Sold marketplace
-      <select name="sold_marketplace" required>
-        {% for option in marketplaces %}
-          <option value="{{ option }}">{{ option }}</option>
-        {% endfor %}
-      </select>
-    </label>
-    <button type="submit" class="primary">Mark sold</button>
+    <fieldset class="sold-marketplace-options span-2">
+      <legend>Sold marketplace</legend>
+      {% for option in marketplaces %}
+        <label>
+          <input
+            type="checkbox"
+            name="sold_marketplace"
+            value="{{ option }}"
+            class="sold-marketplace-checkbox"
+          />
+          {{ option }}
+        </label>
+      {% endfor %}
+    </fieldset>
+    <button type="submit" class="primary sold-submit">Mark sold</button>
   </form>
 </section>
 
@@ -146,4 +152,38 @@
     <button type="submit" class="button">Delete item</button>
   </form>
 </section>
+<script>
+  const browserToday = (() => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  })();
+
+  const listingDateInput = document.querySelector("form[action='{{ url_for('add_listing', item_id=item.id) }}'] input[name='listing_date']");
+  if (listingDateInput) {
+    listingDateInput.value = browserToday;
+  }
+
+  const markSoldSaleDateInput = document.querySelector("form[action='{{ url_for('mark_sold', item_id=item.id) }}'] input[name='sale_date']");
+  if (markSoldSaleDateInput) {
+    markSoldSaleDateInput.value = browserToday;
+  }
+
+  const soldMarketplaceCheckboxes = document.querySelectorAll(".sold-marketplace-checkbox");
+  soldMarketplaceCheckboxes.forEach((checkbox) => {
+    checkbox.addEventListener("change", (event) => {
+      if (!event.target.checked) {
+        return;
+      }
+      const parentForm = event.target.closest("form");
+      if (!parentForm) {
+        return;
+      }
+      parentForm.querySelectorAll(".sold-marketplace-checkbox").forEach((option) => {
+        if (option !== event.target) {
+          option.checked = false;
+        }
+      });
+    });
+  });
+</script>
 {% endblock %}

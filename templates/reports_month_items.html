@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="card">
+  <div class="item-header">
+    <div>
+      <h2>Items sold in {{ month }}</h2>
+      <p class="muted">Marketplace: {{ marketplace_filter }} · Purchase source: {{ purchase_source_filter }}</p>
+    </div>
+    <a class="link" href="{{ url_for('reports', month=month, marketplace=marketplace_filter, purchase_source=purchase_source_filter) }}">Back to reports</a>
+  </div>
+  <div class="table-wrap">
+    <table class="sortable-table">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Purchase date</th>
+          <th>Sale date</th>
+          <th>Bought from</th>
+          <th>Sold on</th>
+          <th>Purchase</th>
+          <th>Sale</th>
+          <th>Profit</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+          <tr>
+            <td><a href="{{ url_for('item_detail', item_id=item.id) }}">{{ item.name }}</a></td>
+            <td>{{ item.purchase_date or '–' }}</td>
+            <td>{{ item.sale_date or '–' }}</td>
+            <td>{{ item.purchase_source or '–' }}</td>
+            <td>{{ item.sold_marketplace or '–' }}</td>
+            <td>{{ item.purchase_price | currency }}</td>
+            <td>{{ item.sale_price | currency }}</td>
+            <td>{{ (item.sale_price - item.purchase_price) | currency if item.sale_price is not none else "–" }}</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="8" class="empty">No sold items for this month and filters.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
