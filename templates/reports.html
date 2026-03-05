@@ -55,16 +55,7 @@
           {% endfor %}
         </select>
       </label>
-      <label>
-        Marketplace breakdown period
-        <select name="marketplace_period">
-          <option value="all" {% if marketplace_period == 'all' %}selected{% endif %}>All time</option>
-          <option value="12m" {% if marketplace_period == '12m' %}selected{% endif %}>Previous 12 months</option>
-          <option value="6m" {% if marketplace_period == '6m' %}selected{% endif %}>Previous 6 months</option>
-          <option value="3m" {% if marketplace_period == '3m' %}selected{% endif %}>Previous 3 months</option>
-          <option value="1m" {% if marketplace_period == '1m' %}selected{% endif %}>Current month</option>
-        </select>
-      </label>
+      <input type="hidden" name="marketplace_period" value="{{ marketplace_period }}" />
       <button type="submit">Apply</button>
       <a href="{{ url_for('reports') }}" class="link">Reset</a>
     </form>
@@ -135,7 +126,25 @@
 </section>
 
 <section class="card">
-  <h2>Marketplace breakdown</h2>
+  <div class="filters">
+    <h2>Marketplace breakdown</h2>
+    <form method="get" class="filters-form">
+      <input type="hidden" name="month" value="{{ month_filter }}" />
+      <input type="hidden" name="marketplace" value="{{ marketplace_filter }}" />
+      <input type="hidden" name="purchase_source" value="{{ purchase_source_filter }}" />
+      <label>
+        Period
+        <select name="marketplace_period">
+          <option value="all" {% if marketplace_period == 'all' %}selected{% endif %}>All time</option>
+          <option value="12m" {% if marketplace_period == '12m' %}selected{% endif %}>Previous 12 months</option>
+          <option value="6m" {% if marketplace_period == '6m' %}selected{% endif %}>Previous 6 months</option>
+          <option value="3m" {% if marketplace_period == '3m' %}selected{% endif %}>Previous 3 months</option>
+          <option value="1m" {% if marketplace_period == '1m' %}selected{% endif %}>Current month</option>
+        </select>
+      </label>
+      <button type="submit">Apply</button>
+    </form>
+  </div>
   <div class="table-wrap">
     <table class="sortable-table">
       <thead>
