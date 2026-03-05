@@ -55,6 +55,16 @@
           {% endfor %}
         </select>
       </label>
+      <label>
+        Marketplace breakdown period
+        <select name="marketplace_period">
+          <option value="all" {% if marketplace_period == 'all' %}selected{% endif %}>All time</option>
+          <option value="12m" {% if marketplace_period == '12m' %}selected{% endif %}>Previous 12 months</option>
+          <option value="6m" {% if marketplace_period == '6m' %}selected{% endif %}>Previous 6 months</option>
+          <option value="3m" {% if marketplace_period == '3m' %}selected{% endif %}>Previous 3 months</option>
+          <option value="1m" {% if marketplace_period == '1m' %}selected{% endif %}>Current month</option>
+        </select>
+      </label>
       <button type="submit">Apply</button>
       <a href="{{ url_for('reports') }}" class="link">Reset</a>
     </form>

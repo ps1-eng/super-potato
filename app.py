@@ -1984,11 +1984,56 @@ def reports() -> str:
     if marketplace_filter != "all":
         marketplace_filter = normalize_marketplace(marketplace_filter) or "all"
     purchase_source_filter = request.args.get("purchase_source") or "all"
+    marketplace_period = request.args.get("marketplace_period") or "all"
+    period_months = {
+        "1m": 1,
+        "3m": 3,
+        "6m": 6,
+        "12m": 12,
+    }
+    if marketplace_period not in {"all", *period_months.keys()}:
+        marketplace_period = "all"
+
     summary = fetch_summary()
 
     with get_db() as conn:
-        marketplace_data = conn.execute(
-            """
+        marketplace_filters = ["sale_price IS NOT NULL", "sale_date IS NOT NULL"]
+        marketplace_params: list[str] = []
+
+        if marketplace_filter != "all":
+            marketplace_filters.append(
+                """
+                COALESCE(
+                    CASE LOWER(TRIM(sold_marketplace))
+                        WHEN 'ebay' THEN 'eBay'
+                        WHEN 'e bay' THEN 'eBay'
+                        WHEN 'adverts' THEN 'Adverts.ie'
+                        WHEN 'adverts.ie' THEN 'Adverts.ie'
+                        WHEN 'vinted' THEN 'Vinted'
+                        ELSE sold_marketplace
+                    END,
+                    'Unlisted'
+                ) = ?
+                """
+            )
+            marketplace_params.append(marketplace_filter)
+
+        if purchase_source_filter != "all":
+            marketplace_filters.append("purchase_source = ?")
+            marketplace_params.append(purchase_source_filter)
+
+        if marketplace_period != "all":
+            months_back = period_months[marketplace_period]
+            current = now_local()
+            total_month_index = current.year * 12 + (current.month - 1)
+            cutoff_index = total_month_index - (months_back - 1)
+            cutoff_year = cutoff_index // 12
+            cutoff_month = cutoff_index % 12 + 1
+            cutoff_month_value = f"{cutoff_year:04d}-{cutoff_month:02d}"
+            marketplace_filters.append("(substr(sale_date, 7, 4) || '-' || substr(sale_date, 4, 2)) >= ?")
+            marketplace_params.append(cutoff_month_value)
+
+        marketplace_query = """
             SELECT COALESCE(
                        CASE LOWER(TRIM(sold_marketplace))
                            WHEN 'ebay' THEN 'eBay'
@@ -2003,10 +2048,11 @@ def reports() -> str:
                    COUNT(*) AS count,
                    SUM(COALESCE(sale_price, 0)) AS total_sales
             FROM items
+            WHERE """ + " AND ".join(marketplace_filters) + """
             GROUP BY marketplace
             ORDER BY total_sales DESC
             """
-        ).fetchall()
+        marketplace_data = conn.execute(marketplace_query, marketplace_params).fetchall()
         sold_items = conn.execute(
             """
             SELECT purchase_price,
@@ -2154,6 +2200,7 @@ def reports() -> str:
         month_filter=month_filter,
         marketplace_filter=marketplace_filter,
         purchase_source_filter=purchase_source_filter,
+        marketplace_period=marketplace_period,
         insights=insights,
     )
 
