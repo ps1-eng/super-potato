@@ -1991,8 +1991,23 @@ def reports() -> str:
         "6m": 6,
         "12m": 12,
     }
-    if marketplace_period not in {"all", *period_months.keys()}:
+    if marketplace_period not in {"all", *period_months.keys(), "prev_month", "custom"}:
         marketplace_period = "all"
+
+    marketplace_start_date_raw = request.args.get("marketplace_start_date", "").strip()
+    marketplace_end_date_raw = request.args.get("marketplace_end_date", "").strip()
+    marketplace_start_date = parse_date(marketplace_start_date_raw) if marketplace_start_date_raw else None
+    marketplace_end_date = parse_date(marketplace_end_date_raw) if marketplace_end_date_raw else None
+
+    if marketplace_period == "custom" and (marketplace_start_date_raw or marketplace_end_date_raw):
+        if (marketplace_start_date_raw and marketplace_start_date is None) or (marketplace_end_date_raw and marketplace_end_date is None):
+            flash("Marketplace custom dates must be valid dates.")
+            marketplace_period = "all"
+            marketplace_start_date = None
+            marketplace_end_date = None
+
+    marketplace_start_date_input = input_date_filter(marketplace_start_date) if marketplace_start_date else ""
+    marketplace_end_date_input = input_date_filter(marketplace_end_date) if marketplace_end_date else ""
 
     summary = fetch_summary()
 
@@ -2022,7 +2037,7 @@ def reports() -> str:
             marketplace_filters.append("purchase_source = ?")
             marketplace_params.append(purchase_source_filter)
 
-        if marketplace_period != "all":
+        if marketplace_period in period_months:
             months_back = period_months[marketplace_period]
             current = now_local()
             total_month_index = current.year * 12 + (current.month - 1)
@@ -2032,6 +2047,24 @@ def reports() -> str:
             cutoff_month_value = f"{cutoff_year:04d}-{cutoff_month:02d}"
             marketplace_filters.append("(substr(sale_date, 7, 4) || '-' || substr(sale_date, 4, 2)) >= ?")
             marketplace_params.append(cutoff_month_value)
+        elif marketplace_period == "prev_month":
+            current = now_local()
+            total_month_index = current.year * 12 + (current.month - 1)
+            previous_month_index = total_month_index - 1
+            previous_year = previous_month_index // 12
+            previous_month = previous_month_index % 12 + 1
+            previous_month_value = f"{previous_year:04d}-{previous_month:02d}"
+            marketplace_filters.append("(substr(sale_date, 7, 4) || '-' || substr(sale_date, 4, 2)) = ?")
+            marketplace_params.append(previous_month_value)
+        elif marketplace_period == "custom":
+            if marketplace_start_date:
+                start_value = f"{marketplace_start_date[6:10]}-{marketplace_start_date[3:5]}-{marketplace_start_date[0:2]}"
+                marketplace_filters.append("(substr(sale_date, 7, 4) || '-' || substr(sale_date, 4, 2) || '-' || substr(sale_date, 1, 2)) >= ?")
+                marketplace_params.append(start_value)
+            if marketplace_end_date:
+                end_value = f"{marketplace_end_date[6:10]}-{marketplace_end_date[3:5]}-{marketplace_end_date[0:2]}"
+                marketplace_filters.append("(substr(sale_date, 7, 4) || '-' || substr(sale_date, 4, 2) || '-' || substr(sale_date, 1, 2)) <= ?")
+                marketplace_params.append(end_value)
 
         marketplace_query = """
             SELECT COALESCE(
@@ -2201,6 +2234,8 @@ def reports() -> str:
         marketplace_filter=marketplace_filter,
         purchase_source_filter=purchase_source_filter,
         marketplace_period=marketplace_period,
+        marketplace_start_date_input=marketplace_start_date_input,
+        marketplace_end_date_input=marketplace_end_date_input,
         insights=insights,
     )
 
