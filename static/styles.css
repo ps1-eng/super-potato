@@ -586,3 +586,15 @@ button.danger {
   content: " ▼";
   color: #2563eb;
 }
+
+
+.cash-sale-toggle {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.cash-sale-toggle input[type="checkbox"] {
+  margin: 0;
+}
