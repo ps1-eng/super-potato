@@ -55,12 +55,15 @@
           {% endfor %}
         </select>
       </label>
+      <input type="hidden" name="marketplace_period" value="{{ marketplace_period }}" />
+      <input type="hidden" name="marketplace_start_date" value="{{ marketplace_start_date_input }}" />
+      <input type="hidden" name="marketplace_end_date" value="{{ marketplace_end_date_input }}" />
       <button type="submit">Apply</button>
       <a href="{{ url_for('reports') }}" class="link">Reset</a>
     </form>
   </div>
   <div class="table-wrap">
-    <table>
+    <table class="sortable-table">
       <thead>
         <tr>
           <th>Month</th>
@@ -74,7 +77,13 @@
         {% for row in monthly_rows %}
           <tr>
             <td>{{ row.month }}</td>
-            <td>{{ row.count }}</td>
+            <td>
+              {% if row.count %}
+                <a href="{{ url_for('reports_month_items', month=row.month, marketplace=marketplace_filter, purchase_source=purchase_source_filter) }}">{{ row.count }}</a>
+              {% else %}
+                0
+              {% endif %}
+            </td>
             <td>{{ row.total_sales | currency }}</td>
             <td>{{ row.total_cost | currency }}</td>
             <td>{{ row.profit | currency }}</td>
@@ -118,10 +127,38 @@
   </div>
 </section>
 
-<section class="card">
-  <h2>Marketplace breakdown</h2>
+<section class="card" id="marketplace-breakdown">
+  <div class="filters">
+    <h2>Marketplace breakdown</h2>
+    <form method="get" class="filters-form" action="{{ url_for('reports') }}#marketplace-breakdown">
+      <input type="hidden" name="month" value="{{ month_filter }}" />
+      <input type="hidden" name="marketplace" value="{{ marketplace_filter }}" />
+      <input type="hidden" name="purchase_source" value="{{ purchase_source_filter }}" />
+      <label>
+        Period
+        <select name="marketplace_period">
+          <option value="all" {% if marketplace_period == 'all' %}selected{% endif %}>All time</option>
+          <option value="12m" {% if marketplace_period == '12m' %}selected{% endif %}>Previous 12 months</option>
+          <option value="6m" {% if marketplace_period == '6m' %}selected{% endif %}>Previous 6 months</option>
+          <option value="3m" {% if marketplace_period == '3m' %}selected{% endif %}>Previous 3 months</option>
+          <option value="1m" {% if marketplace_period == '1m' %}selected{% endif %}>Current month</option>
+          <option value="prev_month" {% if marketplace_period == 'prev_month' %}selected{% endif %}>Previous month</option>
+          <option value="custom" {% if marketplace_period == 'custom' %}selected{% endif %}>Custom date range</option>
+        </select>
+      </label>
+      <label>
+        Start date
+        <input type="date" name="marketplace_start_date" value="{{ marketplace_start_date_input }}" />
+      </label>
+      <label>
+        End date
+        <input type="date" name="marketplace_end_date" value="{{ marketplace_end_date_input }}" />
+      </label>
+      <button type="submit">Apply</button>
+    </form>
+  </div>
   <div class="table-wrap">
-    <table>
+    <table class="sortable-table">
       <thead>
         <tr>
           <th>Marketplace</th>
