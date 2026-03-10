@@ -79,7 +79,7 @@
   {% if recently_added_item %}
     <div class="muted">
       Added: <strong>{{ recently_added_item.name }}</strong> ·
-      <a href="{{ url_for('edit_item', item_id=recently_added_item.id) }}">Edit</a>
+      <a href="{{ url_for('item_detail', item_id=recently_added_item.id) }}">Add listing URLs</a>
     </div>
   {% endif %}
   <datalist id="purchase-sources">
@@ -271,7 +271,17 @@
     multipleToggle.addEventListener("change", syncQuantityVisibility);
   }
 
+  const browserToday = (() => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  })();
+
   const addItemForm = document.querySelector("form[action='{{ url_for('add_item') }}']");
+  const purchaseDateInput = addItemForm?.querySelector("input[name='purchase_date']");
+  if (purchaseDateInput) {
+    purchaseDateInput.value = browserToday;
+  }
+
   const purchaseSourceInput = addItemForm?.querySelector("input[name='purchase_source']");
   const purchaseSourceStorageKey = "resale:add-item:purchase-source";
 
