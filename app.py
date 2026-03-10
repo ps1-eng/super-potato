@@ -228,6 +228,8 @@ def init_db() -> None:
         )
         ensure_column(conn, "items", "listed_date", "TEXT")
         ensure_column(conn, "items", "lot_id", "INTEGER")
+        ensure_column(conn, "items", "is_cash_buy", "INTEGER NOT NULL DEFAULT 0")
+        ensure_column(conn, "items", "is_cash_sale", "INTEGER NOT NULL DEFAULT 0")
         ensure_column(conn, "lots", "is_finalized", "INTEGER NOT NULL DEFAULT 0")
         ensure_column(conn, "listings", "last_checked_at", "TEXT")
         ensure_column(conn, "listings", "last_status", "TEXT")
@@ -455,6 +457,12 @@ def normalize_purchase_source(value: str) -> str:
     if lower == "ark":
         return "Ark - Bray"
     return source
+
+
+def is_car_boot_source(source: str | None) -> bool:
+    if not source:
+        return False
+    return source.strip().lower().startswith("car boot -")
 
 
 def ensure_purchase_source(conn: sqlite3.Connection, source: str) -> None:
@@ -1207,9 +1215,9 @@ def lot_add_created_items(lot_id: int) -> Response:
             conn.execute(
                 """
                 INSERT INTO items
-                    (name, sku, description, purchase_price, purchase_date, purchase_source, status, listed_date, notes, lot_id)
+                    (name, sku, description, purchase_price, purchase_date, purchase_source, status, listed_date, notes, lot_id, is_cash_buy, is_cash_sale)
                 VALUES
-                    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     name,
@@ -1222,6 +1230,8 @@ def lot_add_created_items(lot_id: int) -> Response:
                     None,
                     item_notes,
                     lot_id,
+                    1 if is_car_boot_source(lot["purchase_source"]) else 0,
+                    0,
                 ),
             )
 
@@ -1370,6 +1380,8 @@ def add_item() -> Response:
         status,
         listed_date,
         notes,
+        1 if is_car_boot_source(purchase_source) else 0,
+        0,
     )
 
     created_item_id: int | None = None
@@ -1379,9 +1391,9 @@ def add_item() -> Response:
             cursor = conn.execute(
                 """
                 INSERT INTO items
-                    (name, sku, description, purchase_price, purchase_date, purchase_source, status, listed_date, notes)
+                    (name, sku, description, purchase_price, purchase_date, purchase_source, status, listed_date, notes, is_cash_buy, is_cash_sale)
                 VALUES
-                    (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 row,
             )
@@ -1390,9 +1402,9 @@ def add_item() -> Response:
             conn.executemany(
                 """
                 INSERT INTO items
-                    (name, sku, description, purchase_price, purchase_date, purchase_source, status, listed_date, notes)
+                    (name, sku, description, purchase_price, purchase_date, purchase_source, status, listed_date, notes, is_cash_buy, is_cash_sale)
                 VALUES
-                    (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 [row] * quantity,
             )
@@ -1583,9 +1595,16 @@ def add_listing(item_id: int) -> Response:
 
 @app.route("/item/<int:item_id>/sell", methods=["POST"])
 def mark_sold(item_id: int) -> Response:
+    item = fetch_item(item_id)
+    if item is None:
+        flash("Item not found.")
+        return redirect(url_for("index"))
+
     sale_price = parse_decimal(request.form.get("sale_price", ""))
     sale_date = parse_date(request.form.get("sale_date", ""))
     sold_marketplace = request.form.get("sold_marketplace", "")
+    cash_sale_requested = request.form.get("is_cash_sale") == "on"
+    is_cash_sale = 1 if cash_sale_requested or is_car_boot_source(item["purchase_source"]) else 0
 
     if sale_price is None:
         flash("Sale price must be a number.")
@@ -1601,10 +1620,10 @@ def mark_sold(item_id: int) -> Response:
         conn.execute(
             """
             UPDATE items
-            SET status = 'Sold', sale_price = ?, sale_date = ?, sold_marketplace = ?
+            SET status = 'Sold', sale_price = ?, sale_date = ?, sold_marketplace = ?, is_cash_sale = ?
             WHERE id = ?
             """,
-            (float(sale_price), sale_date, sold_marketplace, item_id),
+            (float(sale_price), sale_date, sold_marketplace, is_cash_sale, item_id),
         )
     flash("Item marked as sold.")
     return redirect(url_for("item_detail", item_id=item_id))
@@ -1624,6 +1643,7 @@ def quick_update_item(item_id: int) -> Response:
 
     sale_price = parse_decimal(sale_price_raw) if sale_price_raw else None
     sale_date = parse_date(sale_date_raw) if sale_date_raw else now_local().strftime(DATE_FORMAT)
+    cash_sale_requested = request.form.get("is_cash_sale") == "on"
 
     with get_db() as conn:
         if sku is not None:
@@ -1636,13 +1656,14 @@ def quick_update_item(item_id: int) -> Response:
             if sale_date is None:
                 flash(f"Sale date must be in {DATE_FORMAT} format.")
                 return redirect(url_for("index"))
+            is_cash_sale = 1 if cash_sale_requested or is_car_boot_source(item["purchase_source"]) else 0
             conn.execute(
                 """
                 UPDATE items
-                SET status = 'Sold', sale_price = ?, sale_date = ?, sold_marketplace = ?
+                SET status = 'Sold', sale_price = ?, sale_date = ?, sold_marketplace = ?, is_cash_sale = ?
                 WHERE id = ?
                 """,
-                (float(sale_price), sale_date, sold_marketplace, item_id),
+                (float(sale_price), sale_date, sold_marketplace, is_cash_sale, item_id),
             )
             flash("Item updated as sold.")
         else:
@@ -1718,10 +1739,12 @@ def edit_item(item_id: int) -> str | Response:
     sale_price = item["sale_price"]
     sale_date = item["sale_date"]
     sold_marketplace = item["sold_marketplace"]
+    is_cash_sale = item["is_cash_sale"]
     if status != "Sold":
         sale_price = None
         sale_date = None
         sold_marketplace = None
+        is_cash_sale = 0
 
     with get_db() as conn:
         ensure_purchase_source(conn, purchase_source)
@@ -1729,7 +1752,7 @@ def edit_item(item_id: int) -> str | Response:
             """
             UPDATE items
             SET name = ?, sku = ?, description = ?, purchase_price = ?, purchase_date = ?,
-                purchase_source = ?, status = ?, listed_date = ?, sale_price = ?, sale_date = ?, sold_marketplace = ?, notes = ?
+                purchase_source = ?, status = ?, listed_date = ?, sale_price = ?, sale_date = ?, sold_marketplace = ?, is_cash_sale = ?, notes = ?
             WHERE id = ?
             """,
             (
@@ -1744,6 +1767,7 @@ def edit_item(item_id: int) -> str | Response:
                 sale_price,
                 sale_date,
                 sold_marketplace,
+                is_cash_sale,
                 notes,
                 item_id,
             ),
@@ -1937,8 +1961,8 @@ def import_csv() -> str | Response:
                 """
                 INSERT INTO items
                     (name, sku, description, purchase_price, purchase_date, purchase_source, status,
-                     listed_date, sale_price, sale_date, sold_marketplace, notes)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     listed_date, sale_price, sale_date, sold_marketplace, notes, is_cash_buy, is_cash_sale)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     name,
@@ -1953,6 +1977,8 @@ def import_csv() -> str | Response:
                     sale_date,
                     sold_marketplace,
                     notes,
+                    1 if is_car_boot_source(purchase_source) else 0,
+                    1 if sale_price is not None and is_car_boot_source(purchase_source) else 0,
                 ),
             )
             item_id = cursor.lastrowid
@@ -2238,6 +2264,126 @@ def reports() -> str:
         marketplace_end_date_input=marketplace_end_date_input,
         insights=insights,
     )
+
+
+@app.route("/reports/cash-journal")
+def reports_cash_journal() -> str:
+    selected_month = request.args.get("month") or now_local().strftime("%Y-%m")
+    try:
+        datetime.strptime(selected_month, "%Y-%m")
+    except ValueError:
+        selected_month = now_local().strftime("%Y-%m")
+
+    month_options: list[str] = []
+    cash_sales: list[sqlite3.Row] = []
+    cash_buys: list[sqlite3.Row] = []
+
+    with get_db() as conn:
+        month_options_rows = conn.execute(
+            """
+            SELECT DISTINCT month_value FROM (
+                SELECT substr(sale_date, 7, 4) || '-' || substr(sale_date, 4, 2) AS month_value
+                FROM items
+                WHERE sale_date IS NOT NULL AND sale_date <> ''
+                UNION
+                SELECT substr(purchase_date, 7, 4) || '-' || substr(purchase_date, 4, 2) AS month_value
+                FROM items
+                WHERE purchase_date IS NOT NULL AND purchase_date <> ''
+            )
+            WHERE month_value IS NOT NULL AND month_value <> ''
+            ORDER BY month_value DESC
+            """
+        ).fetchall()
+        month_options = [row["month_value"] for row in month_options_rows]
+
+        cash_sales = conn.execute(
+            """
+            SELECT id, name, sale_date, sold_marketplace, sale_price, purchase_price
+            FROM items
+            WHERE is_cash_sale = 1
+              AND sale_price IS NOT NULL
+              AND sale_date IS NOT NULL
+              AND substr(sale_date, 7, 4) || '-' || substr(sale_date, 4, 2) = ?
+            ORDER BY substr(sale_date, 7, 4) || '-' || substr(sale_date, 4, 2) || '-' || substr(sale_date, 1, 2), id DESC
+            """,
+            (selected_month,),
+        ).fetchall()
+
+        cash_buys = conn.execute(
+            """
+            SELECT id, name, purchase_date, purchase_source, purchase_price
+            FROM items
+            WHERE is_cash_buy = 1
+              AND purchase_price IS NOT NULL
+              AND purchase_date IS NOT NULL
+              AND substr(purchase_date, 7, 4) || '-' || substr(purchase_date, 4, 2) = ?
+            ORDER BY substr(purchase_date, 7, 4) || '-' || substr(purchase_date, 4, 2) || '-' || substr(purchase_date, 1, 2), id DESC
+            """,
+            (selected_month,),
+        ).fetchall()
+
+    total_cash_sales = sum(float(row["sale_price"] or 0) for row in cash_sales)
+    total_cash_buys = sum(float(row["purchase_price"] or 0) for row in cash_buys)
+
+    return render_template(
+        "reports_cash_journal.html",
+        selected_month=selected_month,
+        month_options=month_options,
+        cash_sales=cash_sales,
+        cash_buys=cash_buys,
+        total_cash_sales=total_cash_sales,
+        total_cash_buys=total_cash_buys,
+        net_cash=total_cash_sales - total_cash_buys,
+    )
+
+
+@app.route("/reports/cash-journal/export")
+def export_cash_journal() -> Response:
+    selected_month = request.args.get("month") or now_local().strftime("%Y-%m")
+    try:
+        datetime.strptime(selected_month, "%Y-%m")
+    except ValueError:
+        selected_month = now_local().strftime("%Y-%m")
+
+    with get_db() as conn:
+        cash_sales = conn.execute(
+            """
+            SELECT id, name, sale_date, sold_marketplace, sale_price
+            FROM items
+            WHERE is_cash_sale = 1
+              AND sale_price IS NOT NULL
+              AND sale_date IS NOT NULL
+              AND substr(sale_date, 7, 4) || '-' || substr(sale_date, 4, 2) = ?
+            ORDER BY id DESC
+            """,
+            (selected_month,),
+        ).fetchall()
+        cash_buys = conn.execute(
+            """
+            SELECT id, name, purchase_date, purchase_source, purchase_price
+            FROM items
+            WHERE is_cash_buy = 1
+              AND purchase_price IS NOT NULL
+              AND purchase_date IS NOT NULL
+              AND substr(purchase_date, 7, 4) || '-' || substr(purchase_date, 4, 2) = ?
+            ORDER BY id DESC
+            """,
+            (selected_month,),
+        ).fetchall()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["month", selected_month])
+    writer.writerow([])
+    writer.writerow(["type", "item_id", "item_name", "date", "source", "amount"])
+    for row in cash_buys:
+        writer.writerow(["cash_buy", row["id"], row["name"], row["purchase_date"], row["purchase_source"], float(row["purchase_price"] or 0)])
+    for row in cash_sales:
+        writer.writerow(["cash_sale", row["id"], row["name"], row["sale_date"], row["sold_marketplace"], float(row["sale_price"] or 0)])
+
+    response = Response(output.getvalue(), mimetype="text/csv")
+    response.headers["Content-Disposition"] = f"attachment; filename=cash-journal-{selected_month}.csv"
+    return response
 
 
 @app.route("/reports/month/<month>/items")
