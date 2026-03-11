@@ -18,6 +18,7 @@
           <th>Remaining</th>
           <th>Items</th>
           <th>Status</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -30,10 +31,11 @@
             <td>{{ (lot.total_cost - lot.allocated_cost) | currency }}</td>
             <td>{{ lot.item_count }}</td>
             <td>{% if lot.is_finalized %}Finalised{% else %}Open{% endif %}</td>
+            <td><a href="{{ url_for('lot_edit', lot_id=lot.id) }}">Edit box</a></td>
           </tr>
         {% else %}
           <tr>
-            <td colspan="7" class="empty">No boxes yet.</td>
+            <td colspan="8" class="empty">No boxes yet.</td>
           </tr>
         {% endfor %}
       </tbody>

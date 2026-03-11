@@ -2125,6 +2125,25 @@ def reports() -> str:
             WHERE sale_price IS NOT NULL AND sale_date IS NOT NULL
             """
         ).fetchall()
+
+        listed_filters = ["items.listed_date IS NOT NULL", "items.listed_date <> ''"]
+        listed_params: list[str] = []
+        listed_query = """
+            SELECT substr(items.listed_date, 7, 4) || '-' || substr(items.listed_date, 4, 2) AS month,
+                   COUNT(DISTINCT items.id) AS count
+            FROM items
+            LEFT JOIN listings ON listings.item_id = items.id
+        """
+        if marketplace_filter != "all":
+            listed_filters.append("listings.marketplace = ?")
+            listed_params.append(marketplace_filter)
+        if purchase_source_filter != "all":
+            listed_filters.append("items.purchase_source = ?")
+            listed_params.append(purchase_source_filter)
+        listed_query += " WHERE " + " AND ".join(listed_filters)
+        listed_query += " GROUP BY month"
+        listed_counts_rows = conn.execute(listed_query, listed_params).fetchall()
+        listed_counts = {row["month"]: int(row["count"] or 0) for row in listed_counts_rows}
         listed_total = conn.execute(
             """
             SELECT COUNT(*) AS total
@@ -2214,6 +2233,7 @@ def reports() -> str:
         {
             "month": month,
             "count": data["count"],
+            "listed_count": listed_counts.get(month, 0),
             "total_sales": data["total_sales"],
             "total_cost": data["total_cost"],
             "profit": data["profit"],
@@ -2384,6 +2404,62 @@ def export_cash_journal() -> Response:
     response = Response(output.getvalue(), mimetype="text/csv")
     response.headers["Content-Disposition"] = f"attachment; filename=cash-journal-{selected_month}.csv"
     return response
+
+
+@app.route("/reports/month/<month>/listed-items")
+def reports_month_listed_items(month: str) -> str | Response:
+    try:
+        datetime.strptime(month, "%Y-%m")
+    except ValueError:
+        flash("Invalid month selected.")
+        return redirect(url_for("reports"))
+
+    marketplace_filter = request.args.get("marketplace") or "all"
+    if marketplace_filter != "all":
+        marketplace_filter = normalize_marketplace(marketplace_filter) or "all"
+
+    purchase_source_filter = normalize_purchase_source(request.args.get("purchase_source", "").strip())
+    if not purchase_source_filter:
+        purchase_source_filter = "all"
+
+    query = """
+        SELECT DISTINCT items.id,
+               items.name,
+               items.sku,
+               items.purchase_date,
+               items.purchase_source,
+               items.listed_date,
+               items.status
+        FROM items
+        LEFT JOIN listings ON listings.item_id = items.id
+        WHERE items.listed_date IS NOT NULL
+          AND items.listed_date <> ''
+          AND substr(items.listed_date, 7, 4) || '-' || substr(items.listed_date, 4, 2) = ?
+    """
+    params: list[str] = [month]
+
+    if marketplace_filter != "all":
+        query += " AND listings.marketplace = ?"
+        params.append(marketplace_filter)
+    if purchase_source_filter != "all":
+        query += " AND items.purchase_source = ?"
+        params.append(purchase_source_filter)
+
+    query += """
+        ORDER BY substr(items.listed_date, 7, 4) || '-' || substr(items.listed_date, 4, 2) || '-' || substr(items.listed_date, 1, 2) DESC,
+                 items.id DESC
+    """
+
+    with get_db() as conn:
+        items = conn.execute(query, params).fetchall()
+
+    return render_template(
+        "reports_month_listed_items.html",
+        month=month,
+        items=items,
+        marketplace_filter=marketplace_filter,
+        purchase_source_filter=purchase_source_filter,
+    )
 
 
 @app.route("/reports/month/<month>/items")

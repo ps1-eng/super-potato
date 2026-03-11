@@ -68,6 +68,7 @@
         <tr>
           <th>Month</th>
           <th>Items sold</th>
+          <th>Items listed</th>
           <th>Total sales</th>
           <th>Total cost</th>
           <th>Profit</th>
@@ -84,13 +85,20 @@
                 0
               {% endif %}
             </td>
+            <td>
+              {% if row.listed_count %}
+                <a href="{{ url_for('reports_month_listed_items', month=row.month, marketplace=marketplace_filter, purchase_source=purchase_source_filter) }}">{{ row.listed_count }}</a>
+              {% else %}
+                0
+              {% endif %}
+            </td>
             <td>{{ row.total_sales | currency }}</td>
             <td>{{ row.total_cost | currency }}</td>
             <td>{{ row.profit | currency }}</td>
           </tr>
         {% else %}
           <tr>
-            <td colspan="5" class="empty">No sales data yet.</td>
+            <td colspan="6" class="empty">No sales data yet.</td>
           </tr>
         {% endfor %}
       </tbody>
@@ -163,6 +171,7 @@
         <tr>
           <th>Marketplace</th>
           <th>Items sold</th>
+          <th>Items listed</th>
           <th>Total sales</th>
         </tr>
       </thead>
