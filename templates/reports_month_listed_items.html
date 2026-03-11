@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="card">
+  <div class="item-header">
+    <div>
+      <h2>Items listed in {{ month }}</h2>
+      <p class="muted">Marketplace: {{ marketplace_filter }} · Purchase source: {{ purchase_source_filter }}</p>
+    </div>
+    <a class="link" href="{{ url_for('reports', month=month, marketplace=marketplace_filter, purchase_source=purchase_source_filter) }}">Back to reports</a>
+  </div>
+  <div class="table-wrap">
+    <table class="sortable-table">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Status</th>
+          <th>Purchase date</th>
+          <th>Listed date</th>
+          <th>Bought from</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+          <tr>
+            <td><a href="{{ url_for('item_detail', item_id=item.id) }}">{{ item.name }}</a></td>
+            <td>{{ item.status }}</td>
+            <td>{{ item.purchase_date or '–' }}</td>
+            <td>{{ item.listed_date or '–' }}</td>
+            <td>{{ item.purchase_source or '–' }}</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="5" class="empty">No listed items for this month and filters.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
