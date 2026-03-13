@@ -1604,7 +1604,7 @@ def mark_sold(item_id: int) -> Response:
     sale_date = parse_date(request.form.get("sale_date", ""))
     sold_marketplace = request.form.get("sold_marketplace", "")
     cash_sale_requested = request.form.get("is_cash_sale") == "on"
-    is_cash_sale = 1 if cash_sale_requested or is_car_boot_source(item["purchase_source"]) else 0
+    is_cash_sale = 1 if cash_sale_requested else 0
 
     if sale_price is None:
         flash("Sale price must be a number.")
@@ -1656,7 +1656,7 @@ def quick_update_item(item_id: int) -> Response:
             if sale_date is None:
                 flash(f"Sale date must be in {DATE_FORMAT} format.")
                 return redirect(url_for("index"))
-            is_cash_sale = 1 if cash_sale_requested or is_car_boot_source(item["purchase_source"]) else 0
+            is_cash_sale = 1 if cash_sale_requested else 0
             conn.execute(
                 """
                 UPDATE items
@@ -1942,6 +1942,8 @@ def import_csv() -> str | Response:
             sold_marketplace = normalize_marketplace((row.get("sold_marketplace") or "").strip())
             description = (row.get("description") or "").strip() or None
             notes = (row.get("notes") or "").strip() or None
+            cash_sale_raw = (row.get("is_cash_sale") or "").strip().lower()
+            csv_cash_sale = 1 if cash_sale_raw in {"1", "true", "yes", "y", "on"} else 0
 
             if purchase_price is None or purchase_date is None or not purchase_source:
                 continue
@@ -1978,7 +1980,7 @@ def import_csv() -> str | Response:
                     sold_marketplace,
                     notes,
                     1 if is_car_boot_source(purchase_source) else 0,
-                    1 if sale_price is not None and is_car_boot_source(purchase_source) else 0,
+                    csv_cash_sale,
                 ),
             )
             item_id = cursor.lastrowid
