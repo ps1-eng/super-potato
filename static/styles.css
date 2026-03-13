@@ -369,6 +369,34 @@ td:first-child {
   grid-column: span 2;
 }
 
+.sold-marketplace-options {
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+
+.sold-marketplace-options legend {
+  margin-bottom: 0.35rem;
+  font-weight: 600;
+}
+
+.sold-marketplace-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-right: 1rem;
+  font-weight: 500;
+}
+
+.sold-marketplace-options input[type="checkbox"] {
+  margin: 0;
+}
+
+.grid .sold-submit {
+  justify-self: start;
+}
+
 
 .inline-actions {
   display: flex;
@@ -504,4 +532,38 @@ button.danger {
 .pill.log-level-error {
   background: #fee2e2;
   color: #991b1b;
+}
+
+
+.sortable-header {
+  cursor: pointer;
+  user-select: none;
+}
+
+.sortable-header::after {
+  content: " ↕";
+  font-size: 0.8em;
+  color: #9ca3af;
+}
+
+.sortable-header[data-sort-direction="asc"]::after {
+  content: " ▲";
+  color: #2563eb;
+}
+
+.sortable-header[data-sort-direction="desc"]::after {
+  content: " ▼";
+  color: #2563eb;
+}
+
+
+.cash-sale-toggle {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.cash-sale-toggle input[type="checkbox"] {
+  margin: 0;
 }
